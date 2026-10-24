@@ -5,37 +5,39 @@
 @tailwind utilities;
 
 :root {
-  --bg: #111118;
-  --sidebar: #15151F;
-  --card: #1B1B28;
-  --surface: #222233;
-  --surface-subtle: #29213D;
-  --text: #F4F2FA;
-  --text-secondary: #AAA6BC;
-  --text-muted: #817C95;
-  --violet-primary: #8B5CF6;
-  --violet-hover: #A78BFA;
-  --violet-pressed: #7C3AED;
-  --border: #343347;
-  --border-subtle: #29293A;
-  --ring: #A78BFA;
+  --bg: #0B1020;
+  --sidebar: #0F172A;
+  --card: #151D31;
+  --surface: #1B263D;
+  --border: #29344D;
+  --border-subtle: #1E293B;
+  --primary-blue: #60A5FA;
+  --secondary-blue: #93C5FD;
+  --text: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --ring: #60A5FA;
 }
 
 html.light {
-  --bg: #F7F7FB;
+  --bg: #F8FAFC;
   --sidebar: #FFFFFF;
   --card: #FFFFFF;
-  --surface: #F0EFF7;
-  --surface-subtle: #EDE9FE;
-  --text: #242033;
-  --text-secondary: #625D74;
-  --text-muted: #777188;
-  --violet-primary: #6D28D9;
-  --violet-hover: #5B21B6;
-  --violet-pressed: #4C1D95;
-  --border: #DDD9E9;
-  --border-subtle: #EAE7F1;
-  --ring: #7C3AED;
+  --surface: #F1F5F9;
+  --border: #E2E8F0;
+  --border-subtle: #CBD5E1;
+  --primary-blue: #2563EB;
+  --secondary-blue: #3B82F6;
+  --text: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --success: #059669;
+  --warning: #D97706;
+  --error: #DC2626;
+  --ring: #2563EB;
 }
 
 @layer base {
@@ -45,11 +47,11 @@ html.light {
     font-family: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
   }
 }
 
-/* Custom scrollbars */
+/* Accessible, elegant custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -61,32 +63,16 @@ html.light {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 3px;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--violet-primary);
+  background: var(--primary-blue);
 }
 
-/* Animations and micro-interactions */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Respect user's motion preferences */
+/* Subtle transitions without excessive animations */
 @media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
+  * {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

@@ -3,7 +3,7 @@ from datetime import timezone
 import pytz
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "clinicqueue-hackathon-2026-secret-key-national-level")
+    SECRET_KEY = os.environ.get("SECRET_KEY", "clinicqueue-production-secure-default-key-2026")
     MONGODB_URI = os.environ.get("MONGODB_URI", "")
     DB_NAME = os.environ.get("DB_NAME", "clinicqueue")
     PORT = int(os.environ.get("PORT", 5000))

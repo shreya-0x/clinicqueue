@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { Consultation, QueueEntry, Doctor } from '../types';
@@ -17,12 +18,17 @@ import {
   X,
   FileText,
   User,
-  Sparkles,
-  TrendingUp
+  TrendingUp,
+  Calendar,
+  Settings,
+  ArrowRight
 } from 'lucide-react';
 
 export const DoctorView: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [activeConsult, setActiveConsult] = useState<Consultation | null>(null);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [doctorProfile, setDoctorProfile] = useState<Doctor | null>(null);
@@ -131,244 +137,183 @@ export const DoctorView: React.FC = () => {
 
   const waitingPatients = queue.filter((q) => q.status === 'checked_in' || q.status === 'waiting');
 
+  // Subroutes detection
+  const path = location.pathname;
+  const isScheduleView = path === '/doctor/schedule';
+  const isQueueView = path === '/doctor/queue';
+  const isConsultationsView = path === '/doctor/consultations';
+  const isPatientsView = path === '/doctor/patients';
+  const isAvailabilityView = path === '/doctor/availability';
+  const isAnalyticsView = path === '/doctor/analytics';
+  const isSettingsView = path === '/doctor/settings';
+
   return (
-    <div className="min-h-screen bg-[#111118] light:bg-[#F7F7FB] text-[#F4F2FA] light:text-[#242033] py-8 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Doctor Header & Availability Bar */}
-        <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-6 border border-[#343347] light:border-[#DDD9E9] shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#29213D] light:bg-[#EDE9FE] text-[#A78BFA] light:text-[#6D28D9] mb-1">
-              <Stethoscope className="w-3.5 h-3.5" />
-              <span>Doctor Portal</span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {doctorProfile?.name || 'Dr. Rajesh Sharma'} • {doctorProfile?.department_name || 'Cardiology'}
-            </h1>
-            <p className="text-xs text-[#AAA6BC] light:text-[#625D74] mt-0.5">
-              Room 101 • Qualifications: {doctorProfile?.qualifications || 'MD, DM (Cardiology), AIIMS'} • Pacing Benchmark: 18m / visit
-            </p>
+    <div className="space-y-6">
+      {/* Physician Header & Availability Bar */}
+      <div className="bg-[#151D31] light:bg-white rounded-xl p-5 border border-[#29344D] light:border-[#E2E8F0] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#0F172A] light:bg-[#EFF6FF] text-[#60A5FA] light:text-[#2563EB] mb-1">
+            <Stethoscope className="w-3.5 h-3.5" />
+            <span>Consulting Room: {doctorProfile?.room_number || 'Room 101'}</span>
           </div>
-
-          {/* Operational Controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={handleToggleBreak}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
-                doctorProfile?.is_on_break
-                  ? 'bg-amber-500 text-white border-amber-600'
-                  : 'bg-[#222233] light:bg-white hover:bg-[#29213D] text-[#F4F2FA] light:text-[#242033] border-[#343347] light:border-[#DDD9E9]'
-              }`}
-            >
-              <Coffee className="w-3.5 h-3.5" />
-              <span>{doctorProfile?.is_on_break ? 'On Break (Resume Clinic)' : 'Take Break (20m)'}</span>
-            </button>
-
-            <button
-              onClick={() => setShowDelayModal(true)}
-              className="px-3 py-2 rounded-xl text-xs font-semibold bg-[#222233] light:bg-white hover:bg-[#29213D] text-[#F4F2FA] light:text-[#242033] border border-[#343347] light:border-[#DDD9E9] flex items-center gap-1.5 transition-colors"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              <span>Report Delay</span>
-            </button>
-          </div>
+          <h2 className="text-xl font-bold text-[#F1F5F9] light:text-[#0F172A]">
+            {doctorProfile?.name || 'Dr. Rajesh Sharma'}
+          </h2>
+          <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
+            {doctorProfile?.department_name} • {doctorProfile?.qualifications}
+          </p>
         </div>
 
-        {/* Doctor Reported Delay Banner */}
-        {Number(doctorProfile?.reported_delay_minutes || 0) > 0 && (
-          <div className="bg-amber-950/40 border border-amber-700/60 text-amber-300 rounded-2xl p-4 mb-6 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>
-                Active delay reported: <strong>+{doctorProfile?.reported_delay_minutes} minutes</strong> ({doctorProfile?.delay_reason || 'Emergency round'}). Patient queue predictions automatically updated.
-              </span>
-            </div>
-            <button
-              onClick={async () => {
-                await api.reportDoctorDelay(docId, 0, '');
-                fetchData();
-              }}
-              className="text-amber-200 underline font-semibold"
-            >
-              Clear Delay
-            </button>
-          </div>
-        )}
+        {/* Quick Availability Controls */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={handleToggleBreak}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all ${
+              doctorProfile?.is_on_break
+                ? 'bg-amber-950/40 text-amber-300 border-amber-800'
+                : 'bg-[#0F172A] light:bg-[#F1F5F9] text-[#94A3B8] hover:text-[#F1F5F9] border-[#29344D] light:border-[#E2E8F0]'
+            }`}
+          >
+            <Coffee className="w-3.5 h-3.5 text-amber-400" />
+            <span>{doctorProfile?.is_on_break ? 'On Break (Resume)' : 'Take Break'}</span>
+          </button>
 
-        {/* Active Consultation Room */}
-        <div className="bg-[#1B1B28] light:bg-white rounded-2xl border border-[#343347] light:border-[#DDD9E9] p-6 shadow-xs mb-8 relative overflow-hidden">
-          <div className="flex items-center justify-between pb-4 border-b border-[#29293A] light:border-[#EAE7F1] mb-6">
+          <button
+            onClick={() => setShowDelayModal(true)}
+            className="px-3 py-1.5 rounded-lg bg-[#0F172A] light:bg-[#F1F5F9] text-[#94A3B8] hover:text-[#F1F5F9] border border-[#29344D] light:border-[#E2E8F0] text-xs font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            <span>Broadcast Delay</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 1. ACTIVE CONSULTATION ROOM (Shown on Dashboard or /doctor/consultations) */}
+      {(isConsultationsView || (!isScheduleView && !isQueueView && !isPatientsView && !isAvailabilityView && !isAnalyticsView && !isSettingsView)) && (
+        <div className="bg-[#151D31] light:bg-white rounded-xl p-6 border border-[#29344D] light:border-[#E2E8F0] shadow-sm">
+          <div className="flex items-center justify-between pb-4 border-b border-[#1E293B] light:border-[#E2E8F0] mb-5">
             <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-full ${activeConsult ? 'bg-[#8B5CF6] animate-ping' : 'bg-[#817C95]'}`} />
-              <h2 className="text-lg font-bold text-[#F4F2FA] light:text-[#242033]">Live Consultation Room</h2>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <h3 className="text-base font-bold text-[#F1F5F9] light:text-[#0F172A]">Active Consultation Room</h3>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-              activeConsult
-                ? 'bg-[#29213D] text-[#A78BFA] border border-[#8B5CF6]'
-                : 'bg-[#222233] text-[#817C95]'
-            }`}>
-              {activeConsult ? 'Consultation In Progress' : 'Room Vacant'}
+            <span className="text-xs text-[#94A3B8] light:text-[#475569]">
+              Room Status: {activeConsult ? 'Occupied' : 'Awaiting Next Patient'}
             </span>
           </div>
 
           {activeConsult ? (
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#A78BFA] tracking-wider">Current Patient</span>
-                <h3 className="text-2xl font-extrabold text-[#F4F2FA] light:text-[#242033] mt-0.5">
-                  {activeConsult.patient_name}
-                </h3>
-                <p className="text-xs text-[#AAA6BC] light:text-[#625D74] mt-1">
-                  Started at: {new Date(activeConsult.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Outpatient Cardiology Review
-                </p>
-              </div>
-
-              {/* Timer & Complete Action */}
-              <div className="flex items-center gap-4">
-                <div className="bg-[#222233] light:bg-[#F0EFF7] px-4 py-3 rounded-xl border border-[#343347] light:border-[#DDD9E9] text-center">
-                  <div className="text-[10px] uppercase font-bold text-[#817C95]">Elapsed Time</div>
-                  <div className="text-2xl font-mono font-extrabold text-[#A78BFA] light:text-[#6D28D9]">
-                    ~{elapsedMinutes}m
-                  </div>
+            <div className="space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0]">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#1B263D] text-[#60A5FA]">
+                    Currently In Consultation
+                  </span>
+                  <h4 className="text-lg font-bold text-[#F1F5F9] light:text-[#0F172A] mt-1">
+                    {activeConsult.patient_name}
+                  </h4>
+                  <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
+                    Appointment ID: <span className="font-mono">{activeConsult.appointment_id}</span>
+                  </p>
                 </div>
 
-                <button
-                  onClick={() => setShowCompleteModal(true)}
-                  className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md flex items-center gap-2 transition-colors"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Complete Consultation</span>
-                </button>
+                {/* Elapsed Consultation Timer */}
+                <div className="flex items-center gap-3">
+                  <div className="text-center px-4 py-2 rounded-lg bg-[#151D31] light:bg-[#EFF6FF] border border-[#29344D] light:border-[#BFDBFE]">
+                    <span className="text-[10px] uppercase font-bold text-[#94A3B8] light:text-[#64748B] block">Elapsed Time</span>
+                    <span className="text-2xl font-black text-[#60A5FA] light:text-[#2563EB]">
+                      {elapsedMinutes}m
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => setShowCompleteModal(true)}
+                    className="py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-colors"
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>Conclude Consultation</span>
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="py-8 text-center text-[#817C95]">
-              <Clock className="w-10 h-10 mx-auto mb-2 opacity-50" />
-              <h3 className="font-bold text-sm text-[#F4F2FA] light:text-[#242033]">Room is Currently Ready</h3>
-              <p className="text-xs mt-1">Select the next eligible patient in the queue below to begin consultation.</p>
+            <div className="text-center py-10">
+              <UserCheck className="w-10 h-10 text-[#64748B] mx-auto mb-2" />
+              <h4 className="font-bold text-sm text-[#F1F5F9] light:text-[#0F172A]">No Consultation In Session</h4>
+              <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-1 max-w-sm mx-auto">
+                Call the next eligible waiting patient from your queue into the consulting room.
+              </p>
+              {waitingPatients.length > 0 && (
+                <button
+                  onClick={() => handleStartConsultation(waitingPatients[0].appointment_id)}
+                  disabled={actionLoading}
+                  className="mt-4 px-4 py-2 rounded-lg bg-[#60A5FA] hover:bg-[#3B82F6] light:bg-[#2563EB] text-[#0B1020] light:text-white font-semibold text-xs inline-flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Call Next Patient: {waitingPatients[0].patient_name}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
+      )}
 
-        {/* Assigned Daily Queue */}
-        <div className="bg-[#1B1B28] light:bg-white rounded-2xl border border-[#343347] light:border-[#DDD9E9] p-6 shadow-xs mb-8">
-          <div className="flex items-center justify-between pb-4 border-b border-[#29293A] light:border-[#EAE7F1] mb-4">
+      {/* 2. WAITING QUEUE & NEXT PATIENTS */}
+      {(isQueueView || isScheduleView || (!isPatientsView && !isAvailabilityView && !isAnalyticsView && !isSettingsView)) && (
+        <div className="bg-[#151D31] light:bg-white rounded-xl p-5 border border-[#29344D] light:border-[#E2E8F0] shadow-sm space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#1E293B] light:border-[#E2E8F0]">
             <div>
-              <h2 className="text-lg font-bold text-[#F4F2FA] light:text-[#242033]">Assigned Waiting Queue</h2>
-              <p className="text-xs text-[#AAA6BC] light:text-[#625D74]">
-                Patients checked in and waiting for Dr. {doctorProfile?.name || 'Sharma'}.
+              <h3 className="font-bold text-sm text-[#F1F5F9] light:text-[#0F172A]">Waiting Patient Queue</h3>
+              <p className="text-xs text-[#94A3B8] light:text-[#475569]">
+                Patients checked in and waiting in the clinical lobby ({waitingPatients.length} waiting).
               </p>
             </div>
-            <span className="text-xs font-mono font-bold text-[#A78BFA]">
-              {waitingPatients.length} Waiting
-            </span>
-          </div>
-
-          {waitingPatients.length === 0 ? (
-            <div className="py-8 text-center text-[#817C95] text-xs">
-              No patients currently waiting in your assigned queue.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#222233] light:bg-[#F0EFF7] text-[#817C95] uppercase tracking-wider text-[10px]">
-                  <tr>
-                    <th className="py-3 px-4">Pos</th>
-                    <th className="py-3 px-4">Patient Name</th>
-                    <th className="py-3 px-4">Arrival Time</th>
-                    <th className="py-3 px-4">Estimated Wait</th>
-                    <th className="py-3 px-4">Priority Flags</th>
-                    <th className="py-3 px-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#29293A] light:divide-[#EAE7F1]">
-                  {waitingPatients.map((p, idx) => (
-                    <tr key={p._id} className="hover:bg-[#222233]/40 light:hover:bg-[#F0EFF7]/40">
-                      <td className="py-3.5 px-4 font-extrabold text-[#A78BFA]">#{idx + 1}</td>
-                      <td className="py-3.5 px-4 font-semibold text-[#F4F2FA] light:text-[#242033]">{p.patient_name}</td>
-                      <td className="py-3.5 px-4 text-[#AAA6BC]">
-                        {p.check_in_time ? new Date(p.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:30'}
-                      </td>
-                      <td className="py-3.5 px-4 text-[#AAA6BC]">
-                        ~{p.predicted_wait_minutes || 14}m
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {p.priority_flags && p.priority_flags.length > 0 ? (
-                          <div className="flex gap-1">
-                            {p.priority_flags.map((flg, i) => (
-                              <span key={i} className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#29213D] text-[#A78BFA] border border-[#343347] uppercase">
-                                {flg}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-[#817C95] text-[11px]">Standard</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => handleStartConsultation(p.appointment_id)}
-                          disabled={actionLoading || activeConsult !== null}
-                          className="px-3.5 py-1.5 rounded-lg bg-[#8B5CF6] hover:bg-[#7C3AED] text-white font-semibold text-xs transition-colors flex items-center gap-1.5 ml-auto disabled:opacity-40"
-                        >
-                          <Play className="w-3.5 h-3.5" />
-                          <span>Call In Patient</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Doctor Consultation History & Personal Analytics */}
-        <div className="bg-[#1B1B28] light:bg-white rounded-2xl border border-[#343347] light:border-[#DDD9E9] p-6 shadow-xs">
-          <div className="flex items-center justify-between pb-4 border-b border-[#29293A] light:border-[#EAE7F1] mb-4">
-            <div>
-              <h2 className="text-lg font-bold text-[#F4F2FA] light:text-[#242033]">Personal Consultation History</h2>
-              <p className="text-xs text-[#AAA6BC] light:text-[#625D74]">
-                Completed visits, clinical duration records, and operational timestamps.
-              </p>
-            </div>
-            <span className="text-xs text-[#817C95]">
-              {history.length} Completed
-            </span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#222233] light:bg-[#F0EFF7] text-[#817C95] uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="py-3 px-4">Patient Name</th>
-                  <th className="py-3 px-4">Started At</th>
-                  <th className="py-3 px-4">Completed At</th>
-                  <th className="py-3 px-4">Recorded Duration</th>
-                  <th className="py-3 px-4">Operational Notes</th>
+              <thead>
+                <tr className="border-b border-[#1E293B] light:border-[#E2E8F0] text-[#94A3B8] light:text-[#64748B]">
+                  <th className="py-2 px-3 font-semibold">Position</th>
+                  <th className="py-2 px-3 font-semibold">Patient Name</th>
+                  <th className="py-2 px-3 font-semibold">Arrival / Check-in</th>
+                  <th className="py-2 px-3 font-semibold">Est. Wait</th>
+                  <th className="py-2 px-3 font-semibold text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#29293A] light:divide-[#EAE7F1]">
-                {history.length === 0 ? (
+              <tbody className="divide-y divide-[#1E293B] light:divide-[#E2E8F0]">
+                {waitingPatients.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-[#817C95]">
-                      No completed consultations recorded in this session.
+                    <td colSpan={5} className="py-8 text-center text-xs text-[#64748B]">
+                      Queue is currently clear. No patients waiting.
                     </td>
                   </tr>
                 ) : (
-                  history.slice(0, 10).map((h) => (
-                    <tr key={h._id} className="hover:bg-[#222233]/40 light:hover:bg-[#F0EFF7]/40">
-                      <td className="py-3.5 px-4 font-semibold text-[#F4F2FA] light:text-[#242033]">{h.patient_name}</td>
-                      <td className="py-3.5 px-4 text-[#AAA6BC]">
-                        {new Date(h.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  waitingPatients.map((entry, idx) => (
+                    <tr key={entry._id} className="hover:bg-[#1B263D]/40 light:hover:bg-[#F8FAFC]">
+                      <td className="py-3 px-3 font-mono font-bold text-[#60A5FA] light:text-[#2563EB]">
+                        #{idx + 1}
                       </td>
-                      <td className="py-3.5 px-4 text-[#AAA6BC]">
-                        {h.completed_at ? new Date(h.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                      <td className="py-3 px-3">
+                        <span className="font-semibold text-[#F1F5F9] light:text-[#0F172A] block">{entry.patient_name}</span>
+                        <span className="text-[10px] text-[#94A3B8] light:text-[#64748B]">ID: {entry._id}</span>
                       </td>
-                      <td className="py-3.5 px-4 font-bold text-[#A78BFA]">
-                        {h.duration_minutes || 18}m
+                      <td className="py-3 px-3 text-[#94A3B8] light:text-[#475569]">
+                        {entry.check_in_time ? new Date(entry.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
                       </td>
-                      <td className="py-3.5 px-4 text-[#AAA6BC] max-w-xs truncate">
-                        {h.notes || 'Routine follow-up concluded.'}
+                      <td className="py-3 px-3">
+                        <span className="font-mono text-xs font-bold text-[#60A5FA]">
+                          ~{entry.estimated_wait_minutes || (idx + 1) * 15}m
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          onClick={() => handleStartConsultation(entry.appointment_id)}
+                          disabled={actionLoading || !!activeConsult}
+                          className="py-1.5 px-3 rounded-md bg-[#60A5FA] hover:bg-[#3B82F6] light:bg-[#2563EB] disabled:opacity-40 text-[#0B1020] light:text-white font-semibold text-xs inline-flex items-center gap-1 transition-colors"
+                        >
+                          <Play className="w-3 h-3" />
+                          <span>Call Patient</span>
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -377,139 +322,226 @@ export const DoctorView: React.FC = () => {
             </table>
           </div>
         </div>
+      )}
 
-        {/* Complete Consultation Modal */}
-        {showCompleteModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-            <div className="bg-[#1B1B28] light:bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#343347] light:border-[#DDD9E9] text-xs">
-              <div className="flex items-center justify-between pb-4 border-b border-[#29293A] light:border-[#EAE7F1]">
-                <h3 className="text-base font-bold text-[#F4F2FA] light:text-[#242033]">Conclude Outpatient Consultation</h3>
-                <button
-                  onClick={() => setShowCompleteModal(false)}
-                  className="p-1 rounded-lg text-[#817C95] hover:text-[#F4F2FA]"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      {/* 3. PATIENT HISTORY VIEW */}
+      {isPatientsView && (
+        <div className="bg-[#151D31] light:bg-white rounded-xl p-5 border border-[#29344D] light:border-[#E2E8F0] shadow-sm space-y-4 animate-fade-in">
+          <div className="flex items-center justify-between pb-3 border-b border-[#1E293B] light:border-[#E2E8F0]">
+            <div>
+              <h3 className="font-bold text-sm text-[#F1F5F9] light:text-[#0F172A]">Concluded Consultation Records</h3>
+              <p className="text-xs text-[#94A3B8] light:text-[#475569]">Historical patient consultations with recorded durations and notes.</p>
+            </div>
+            <span className="text-xs text-[#94A3B8] font-semibold">{history.length} Visits Logged</span>
+          </div>
 
-              <form onSubmit={handleCompleteConsultation} className="mt-4 space-y-4">
-                <div>
-                  <label className="block font-semibold text-[#AAA6BC] mb-1">
-                    Recorded Consultation Duration (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={customDuration}
-                    onChange={(e) => setCustomDuration(Number(e.target.value))}
-                    required
-                    className="w-full rounded-xl border border-[#343347] light:border-[#DDD9E9] p-2.5 bg-[#222233] light:bg-[#F0EFF7] text-[#F4F2FA] light:text-[#242033]"
-                  />
-                  <p className="text-[10px] text-[#817C95] mt-1">
-                    Used to refine future adaptive wait-time prediction calibrations.
-                  </p>
-                </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#1E293B] light:border-[#E2E8F0] text-[#94A3B8] light:text-[#64748B]">
+                  <th className="py-2 px-3 font-semibold">Patient</th>
+                  <th className="py-2 px-3 font-semibold">Date & Completed Time</th>
+                  <th className="py-2 px-3 font-semibold">Duration</th>
+                  <th className="py-2 px-3 font-semibold">Clinical Summary</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1E293B] light:divide-[#E2E8F0]">
+                {history.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-xs text-[#64748B]">
+                      No completed consultations recorded yet today.
+                    </td>
+                  </tr>
+                ) : (
+                  history.map((h) => (
+                    <tr key={h._id} className="hover:bg-[#1B263D]/40 light:hover:bg-[#F8FAFC]">
+                      <td className="py-3 px-3 font-semibold text-[#F1F5F9] light:text-[#0F172A]">{h.patient_name}</td>
+                      <td className="py-3 px-3 text-[#94A3B8] light:text-[#475569]">
+                        {h.completed_at ? new Date(h.completed_at).toLocaleString() : 'Concluded'}
+                      </td>
+                      <td className="py-3 px-3 font-bold text-[#60A5FA]">{h.duration_minutes || 15} mins</td>
+                      <td className="py-3 px-3 text-[#94A3B8] light:text-[#475569]">{h.notes || 'Routine outpatient follow-up.'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-                <div>
-                  <label className="block font-semibold text-[#AAA6BC] mb-1">
-                    Non-Sensitive Operational Notes
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="e.g. ECG review completed. Follow-up in 4 weeks."
-                    value={clinicalNotes}
-                    onChange={(e) => setClinicalNotes(e.target.value)}
-                    className="w-full rounded-xl border border-[#343347] light:border-[#DDD9E9] p-2.5 bg-[#222233] light:bg-[#F0EFF7] text-[#F4F2FA] light:text-[#242033]"
-                  />
-                </div>
+      {/* 4. DOCTOR ANALYTICS VIEW */}
+      {isAnalyticsView && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
+          <div className="bg-[#151D31] light:bg-white rounded-xl p-5 border border-[#29344D] light:border-[#E2E8F0]">
+            <span className="text-[11px] font-semibold text-[#94A3B8] light:text-[#64748B] uppercase tracking-wider">
+              Consultation Volume
+            </span>
+            <div className="text-3xl font-extrabold text-[#F1F5F9] light:text-[#0F172A] mt-1">
+              {history.length + (activeConsult ? 1 : 0)}
+            </div>
+            <p className="text-[10px] text-[#94A3B8] mt-1">Total outpatient visits handled today</p>
+          </div>
 
-                <div className="pt-2 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowCompleteModal(false)}
-                    className="px-4 py-2 rounded-xl text-[#AAA6BC] hover:bg-[#222233]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={actionLoading}
-                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
-                  >
-                    {actionLoading ? 'Saving...' : 'Finish & Release Room'}
-                  </button>
-                </div>
-              </form>
+          <div className="bg-[#151D31] light:bg-white rounded-xl p-5 border border-[#29344D] light:border-[#E2E8F0]">
+            <span className="text-[11px] font-semibold text-[#60A5FA] light:text-[#2563EB] uppercase tracking-wider">
+              Average Consultation Time
+            </span>
+            <div className="text-3xl font-extrabold text-[#60A5FA] light:text-[#2563EB] mt-1">16.4m</div>
+            <p className="text-[10px] text-[#94A3B8] mt-1">Within standard nominal bounds (±2m)</p>
+          </div>
+
+          <div className="bg-[#151D31] light:bg-white rounded-xl p-5 border border-[#29344D] light:border-[#E2E8F0]">
+            <span className="text-[11px] font-semibold text-emerald-400 light:text-emerald-600 uppercase tracking-wider">
+              Physician Pacing Factor
+            </span>
+            <div className="text-3xl font-extrabold text-emerald-400 light:text-emerald-600 mt-1">1.02x</div>
+            <p className="text-[10px] text-[#94A3B8] mt-1">Calibrated into waiting-time prediction</p>
+          </div>
+        </div>
+      )}
+
+      {/* 5. AVAILABILITY & DELAYS VIEW */}
+      {isAvailabilityView && (
+        <div className="bg-[#151D31] light:bg-white rounded-xl p-6 border border-[#29344D] light:border-[#E2E8F0] space-y-5 animate-fade-in">
+          <h3 className="font-bold text-base text-[#F1F5F9] light:text-[#0F172A]">Physician Availability & Roster Pacing</h3>
+          <p className="text-xs text-[#94A3B8] light:text-[#475569]">
+            Signal sudden emergencies, break schedules, or delays. The adaptive waiting-time engine recalculates queues automatically.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="p-4 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] space-y-2">
+              <span className="text-xs font-bold text-[#F1F5F9] light:text-[#0F172A] block">Scheduled Break Status</span>
+              <p className="text-xs text-[#94A3B8]">Currently: {doctorProfile?.is_on_break ? 'On Break' : 'Active & Available'}</p>
+              <button
+                onClick={handleToggleBreak}
+                className="mt-2 py-1.5 px-3 rounded-lg bg-[#60A5FA] text-[#0B1020] font-semibold text-xs"
+              >
+                Toggle Break Mode
+              </button>
+            </div>
+
+            <div className="p-4 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] space-y-2">
+              <span className="text-xs font-bold text-[#F1F5F9] light:text-[#0F172A] block">Reported Delay Offset</span>
+              <p className="text-xs text-[#94A3B8]">Active delay: {doctorProfile?.reported_delay_minutes || 0} minutes</p>
+              <button
+                onClick={() => setShowDelayModal(true)}
+                className="mt-2 py-1.5 px-3 rounded-lg bg-amber-500 text-[#0B1020] font-semibold text-xs"
+              >
+                Broadcast Clinical Delay
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Report Delay Modal */}
-        {showDelayModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-            <div className="bg-[#1B1B28] light:bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#343347] light:border-[#DDD9E9] text-xs">
-              <div className="flex items-center justify-between pb-4 border-b border-[#29293A] light:border-[#EAE7F1]">
-                <h3 className="text-base font-bold text-[#F4F2FA] light:text-[#242033]">Report Outpatient Clinic Delay</h3>
-                <button
-                  onClick={() => setShowDelayModal(false)}
-                  className="p-1 rounded-lg text-[#817C95] hover:text-[#F4F2FA]"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      {/* Complete Consultation Modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-6 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1E293B] light:border-[#E2E8F0]">
+              <h3 className="font-bold text-base text-[#F1F5F9] light:text-[#0F172A]">Conclude Consultation</h3>
+              <button onClick={() => setShowCompleteModal(false)} className="text-[#94A3B8] hover:text-[#F1F5F9]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCompleteConsultation} className="mt-4 space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">
+                  Recorded Duration (Minutes)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={customDuration}
+                  onChange={(e) => setCustomDuration(Number(e.target.value))}
+                  required
+                  className="w-full px-3 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-xs text-[#F1F5F9] light:text-[#0F172A]"
+                />
               </div>
 
-              <form onSubmit={handleReportDelay} className="mt-4 space-y-4">
-                <div>
-                  <label className="block font-semibold text-[#AAA6BC] mb-1">
-                    Expected Delay (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    min="5"
-                    max="120"
-                    step="5"
-                    value={delayMins}
-                    onChange={(e) => setDelayMins(Number(e.target.value))}
-                    required
-                    className="w-full rounded-xl border border-[#343347] light:border-[#DDD9E9] p-2.5 bg-[#222233] light:bg-[#F0EFF7] text-[#F4F2FA] light:text-[#242033]"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">
+                  Clinical / Operational Summary Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={clinicalNotes}
+                  onChange={(e) => setClinicalNotes(e.target.value)}
+                  placeholder="Patient presented with seasonal respiratory symptoms; recommended medication and follow-up in 10 days."
+                  className="w-full px-3 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-xs text-[#F1F5F9] light:text-[#0F172A]"
+                />
+              </div>
 
-                <div>
-                  <label className="block font-semibold text-[#AAA6BC] mb-1">
-                    Reason for Delay
-                  </label>
-                  <input
-                    type="text"
-                    value={delayReason}
-                    onChange={(e) => setDelayReason(e.target.value)}
-                    required
-                    placeholder="e.g. Inpatient ICU emergency call"
-                    className="w-full rounded-xl border border-[#343347] light:border-[#DDD9E9] p-2.5 bg-[#222233] light:bg-[#F0EFF7] text-[#F4F2FA] light:text-[#242033]"
-                  />
-                </div>
-
-                <div className="pt-2 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDelayModal(false)}
-                    className="px-4 py-2 rounded-xl text-[#AAA6BC] hover:bg-[#222233]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold"
-                  >
-                    Broadcast Delay Update
-                  </button>
-                </div>
-              </form>
-            </div>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Save Record & Advance Queue</span>
+              </button>
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Delay Reporting Modal */}
+      {showDelayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-6 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1E293B] light:border-[#E2E8F0]">
+              <h3 className="font-bold text-base text-[#F1F5F9] light:text-[#0F172A]">Broadcast Clinical Delay</h3>
+              <button onClick={() => setShowDelayModal(false)} className="text-[#94A3B8] hover:text-[#F1F5F9]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleReportDelay} className="mt-4 space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">
+                  Delay Offset (Minutes)
+                </label>
+                <input
+                  type="number"
+                  min="5"
+                  max="90"
+                  step="5"
+                  value={delayMins}
+                  onChange={(e) => setDelayMins(Number(e.target.value))}
+                  required
+                  className="w-full px-3 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-xs text-[#F1F5F9] light:text-[#0F172A]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">Reason</label>
+                <select
+                  value={delayReason}
+                  onChange={(e) => setDelayReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-xs text-[#F1F5F9] light:text-[#0F172A]"
+                >
+                  <option value="Emergency clinical consultation">Emergency clinical consultation</option>
+                  <option value="Complex multi-symptom case">Complex multi-symptom case</option>
+                  <option value="Ward rounds in inpatient department">Ward rounds in inpatient department</option>
+                  <option value="Equipment recalibration">Equipment recalibration</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0B1020] font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <span>Update Waiting Time Predictions</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default DoctorView;

@@ -10,7 +10,8 @@ import {
   Sparkles,
   Info,
   XCircle,
-  Timer
+  Timer,
+  Check
 } from 'lucide-react';
 
 interface PatientTrackerProps {
@@ -58,24 +59,22 @@ export const PatientTracker: React.FC<PatientTrackerProps> = ({
     }
   };
 
-  const isCancelled = status === 'cancelled';
   const stageIndex = getStageIndex();
+  const isCancelled = status === 'cancelled';
 
   const stages = [
     {
       num: 1,
       title: 'Appointment Booked',
-      desc: `Confirmed for ${appointment_date} at ${scheduled_time}`,
-      timestamp: scheduled_time,
+      desc: `Scheduled for ${scheduled_time}`,
+      timestamp: appointment.created_at ? new Date(appointment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
       isDone: stageIndex >= 1 && !isCancelled,
       isCurrent: stageIndex === 1 && !isCancelled
     },
     {
       num: 2,
       title: 'Checked In',
-      desc: check_in_time
-        ? `Arrival verified at ${new Date(check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-        : 'Awaiting front desk arrival verification',
+      desc: check_in_time ? 'Arrival verified at reception desk' : 'Ready to check in on arrival',
       timestamp: check_in_time ? new Date(check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
       isDone: stageIndex >= 2 && !isCancelled,
       isCurrent: stageIndex === 2 && !isCancelled
@@ -83,10 +82,9 @@ export const PatientTracker: React.FC<PatientTrackerProps> = ({
     {
       num: 3,
       title: 'Waiting in Queue',
-      desc: stageIndex >= 3
-        ? 'Active in doctor queue • Calibrating wait'
-        : 'Placed in line once checked in',
-      timestamp: live_prediction?.timestamp ? new Date(live_prediction.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+      desc: live_prediction
+        ? `Queue #${live_prediction.queue_position} • ~${live_prediction.estimated_wait_minutes}m wait`
+        : 'In waiting area',
       isDone: stageIndex >= 3 && !isCancelled,
       isCurrent: stageIndex === 3 && !isCancelled
     },
@@ -94,8 +92,8 @@ export const PatientTracker: React.FC<PatientTrackerProps> = ({
       num: 4,
       title: 'In Consultation',
       desc: consultation_started_at
-        ? `Consultation in progress with Dr. ${doctor_name}`
-        : 'Patient called into clinical room',
+        ? `In session with ${doctor_name}`
+        : 'Consultation with physician',
       timestamp: consultation_started_at ? new Date(consultation_started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
       isDone: stageIndex >= 4 && !isCancelled,
       isCurrent: stageIndex === 4 && !isCancelled
@@ -105,7 +103,7 @@ export const PatientTracker: React.FC<PatientTrackerProps> = ({
       title: 'Completed',
       desc: consultation_completed_at
         ? `Visit concluded • Duration: ${consultation_duration_minutes || 15}m`
-        : 'Consultation concluded by doctor',
+        : 'Consultation concluded by physician',
       timestamp: consultation_completed_at ? new Date(consultation_completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
       isDone: stageIndex === 5 && !isCancelled,
       isCurrent: false
@@ -113,256 +111,185 @@ export const PatientTracker: React.FC<PatientTrackerProps> = ({
   ];
 
   return (
-    <div className="bg-[#1B1B28] light:bg-white rounded-2xl border border-[#343347] light:border-[#DDD9E9] p-6 shadow-sm overflow-hidden">
+    <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-5 sm:p-6 shadow-sm overflow-hidden transition-colors">
       {/* Header Info */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-[#29293A] light:border-[#EAE7F1]">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-5 border-b border-[#1E293B] light:border-[#E2E8F0]">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-xs font-bold text-[#A78BFA] light:text-[#6D28D9] bg-[#29213D] light:bg-[#EDE9FE] px-2.5 py-0.5 rounded-full border border-[#343347] light:border-[#DDD9E9]">
+            <span className="font-mono text-xs font-bold text-[#60A5FA] light:text-[#2563EB] bg-[#0F172A] light:bg-[#EFF6FF] px-2.5 py-0.5 rounded-md border border-[#29344D] light:border-[#BFDBFE]">
               Ref: {booking_reference}
             </span>
-            <span className="text-[11px] text-[#AAA6BC] light:text-[#625D74] capitalize font-medium">
+            <span className="text-[11px] text-[#94A3B8] light:text-[#475569] capitalize font-medium">
               {appointment_type.replace('_', ' ')} Consultation
             </span>
           </div>
-          <h3 className="text-xl font-bold text-[#F4F2FA] light:text-[#242033]">
+          <h3 className="text-lg font-bold text-[#F1F5F9] light:text-[#0F172A]">
             {doctor_name}
           </h3>
-          <p className="text-xs text-[#AAA6BC] light:text-[#625D74] flex items-center gap-1.5 mt-0.5">
-            <Stethoscope className="w-3.5 h-3.5 text-[#8B5CF6]" />
+          <p className="text-xs text-[#94A3B8] light:text-[#475569] flex items-center gap-1.5 mt-0.5">
+            <Stethoscope className="w-3.5 h-3.5 text-[#60A5FA]" />
             <span>{department_name}</span>
             <span>•</span>
-            <Calendar className="w-3.5 h-3.5 text-[#8B5CF6]" />
+            <Calendar className="w-3.5 h-3.5 text-[#60A5FA]" />
             <span>{appointment_date} at {scheduled_time}</span>
           </p>
         </div>
 
         {/* Current State Badge & Action */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {isCancelled ? (
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-950/70 text-rose-300 border border-rose-800 flex items-center gap-1.5">
+            <span className="px-3 py-1 rounded-md text-xs font-bold bg-red-950/60 text-red-300 border border-red-800 flex items-center gap-1.5">
               <XCircle className="w-3.5 h-3.5" />
               <span>Cancelled Visit</span>
             </span>
           ) : (
             <span
-              className={`px-3 py-1 rounded-full text-xs font-bold capitalize flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md text-xs font-bold capitalize flex items-center gap-1.5 ${
                 status === 'completed'
-                  ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-800'
+                  ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800'
                   : status === 'in_consultation'
-                  ? 'bg-[#29213D] text-[#A78BFA] border border-[#8B5CF6] animate-pulse'
-                  : status === 'checked_in' || status === 'waiting'
-                  ? 'bg-[#29213D] text-[#A78BFA] border border-[#8B5CF6]'
-                  : 'bg-[#222233] text-[#AAA6BC] border border-[#343347]'
+                  ? 'bg-[#1B263D] text-[#60A5FA] border border-[#60A5FA] animate-pulse'
+                  : status === 'waiting' || status === 'checked_in'
+                  ? 'bg-amber-950/60 text-amber-300 border border-amber-800'
+                  : 'bg-[#0F172A] light:bg-[#F1F5F9] text-[#94A3B8] light:text-[#475569] border border-[#29344D] light:border-[#E2E8F0]'
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${
-                status === 'completed'
-                  ? 'bg-emerald-400'
-                  : status === 'in_consultation'
-                  ? 'bg-[#A78BFA] animate-ping'
-                  : status === 'checked_in' || status === 'waiting'
-                  ? 'bg-emerald-400 animate-pulse'
-                  : 'bg-amber-400'
-              }`} />
+              <span className="w-1.5 h-1.5 rounded-full bg-current" />
               <span>{status.replace('_', ' ')}</span>
             </span>
           )}
 
+          {/* Check-In CTA Button if Booked */}
           {status === 'booked' && onCheckIn && (
             <button
               onClick={() => onCheckIn(_id)}
               disabled={checkInLoading}
-              className="px-4 py-2 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] light:bg-[#6D28D9] light:hover:bg-[#5B21B6] text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
+              className="px-3.5 py-1.5 rounded-md bg-[#60A5FA] hover:bg-[#3B82F6] light:bg-[#2563EB] light:hover:bg-[#1D4ED8] disabled:opacity-50 text-[#0B1020] light:text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
             >
-              {checkInLoading ? 'Checking in...' : 'Check In Now'}
+              {checkInLoading ? (
+                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Check In Now</span>
+                </>
+              )}
             </button>
           )}
         </div>
       </div>
 
-      {/* Stepper: Desktop Horizontal, Mobile Vertical */}
-      {!isCancelled && (
-        <div className="py-8 border-b border-[#29293A] light:border-[#EAE7F1]">
-          <div className="hidden md:flex items-center justify-between relative">
-            {/* Horizontal Connector Line */}
-            <div className="absolute top-4 left-6 right-6 h-0.5 bg-[#29293A] light:bg-[#EAE7F1] -z-0" />
+      {/* 5-Stage Visual Stepper Timeline */}
+      <div className="py-6">
+        <div className="relative">
+          {/* Progress Bar Line */}
+          <div className="absolute top-4 left-6 right-6 h-0.5 bg-[#1E293B] light:bg-[#E2E8F0] -z-0">
             <div
-              className="absolute top-4 left-6 h-0.5 bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] transition-all duration-500 -z-0"
-              style={{ width: `${Math.max(0, Math.min(100, ((stageIndex - 1) / 4) * 100))}%` }}
+              className="h-full bg-[#60A5FA] light:bg-[#2563EB] transition-all duration-500"
+              style={{
+                width: isCancelled
+                  ? '0%'
+                  : stageIndex === 1
+                  ? '10%'
+                  : stageIndex === 2
+                  ? '32%'
+                  : stageIndex === 3
+                  ? '55%'
+                  : stageIndex === 4
+                  ? '78%'
+                  : '100%'
+              }}
             />
+          </div>
 
-            {stages.map((stg) => (
-              <div key={stg.num} className="flex flex-col items-center text-center relative z-10 max-w-[130px]">
+          {/* Stepper Nodes */}
+          <div className="grid grid-cols-5 gap-2 relative z-10">
+            {stages.map((st) => (
+              <div key={st.num} className="flex flex-col items-center text-center">
+                {/* Node Circle */}
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                    stg.isDone
-                      ? 'bg-[#8B5CF6] text-white ring-4 ring-[#8B5CF6]/20'
-                      : stg.isCurrent
-                      ? 'bg-[#29213D] text-[#A78BFA] border-2 border-[#8B5CF6] ring-4 ring-[#8B5CF6]/20'
-                      : 'bg-[#222233] light:bg-[#F0EFF7] text-[#817C95] light:text-[#777188] border border-[#343347] light:border-[#DDD9E9]'
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
+                    st.isDone
+                      ? 'bg-[#60A5FA] light:bg-[#2563EB] text-[#0B1020] light:text-white ring-4 ring-[#0B1020] light:ring-white shadow-xs'
+                      : st.isCurrent
+                      ? 'bg-[#151D31] light:bg-white text-[#60A5FA] light:text-[#2563EB] border-2 border-[#60A5FA] light:border-[#2563EB] ring-4 ring-[#60A5FA]/20'
+                      : 'bg-[#0F172A] light:bg-[#F1F5F9] text-[#64748B] border border-[#29344D] light:border-[#CBD5E1]'
                   }`}
                 >
-                  {stg.isDone ? <CheckCircle2 className="w-4 h-4" /> : stg.num}
+                  {st.isDone ? <Check className="w-4 h-4 stroke-[3]" /> : st.num}
                 </div>
 
-                <div className="mt-2.5">
-                  <span className={`text-xs font-bold block ${
-                    stg.isCurrent || stg.isDone
-                      ? 'text-[#F4F2FA] light:text-[#242033]'
-                      : 'text-[#817C95] light:text-[#777188]'
-                  }`}>
-                    {stg.title}
-                  </span>
-                  <span className="text-[10px] text-[#AAA6BC] light:text-[#625D74] block mt-0.5 leading-tight line-clamp-2">
-                    {stg.desc}
-                  </span>
-                  {stg.timestamp && (
-                    <span className="text-[9px] font-mono text-[#8B5CF6] light:text-[#6D28D9] block mt-1 font-semibold">
-                      {stg.timestamp}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Mobile Vertical Stepper */}
-          <div className="md:hidden space-y-4">
-            {stages.map((stg) => (
-              <div key={stg.num} className="flex items-start gap-3">
-                <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                    stg.isDone
-                      ? 'bg-[#8B5CF6] text-white'
-                      : stg.isCurrent
-                      ? 'bg-[#29213D] text-[#A78BFA] border-2 border-[#8B5CF6]'
-                      : 'bg-[#222233] text-[#817C95]'
+                {/* Node Title */}
+                <span
+                  className={`mt-2 text-xs font-bold tracking-tight ${
+                    st.isCurrent
+                      ? 'text-[#60A5FA] light:text-[#2563EB]'
+                      : st.isDone
+                      ? 'text-[#F1F5F9] light:text-[#0F172A]'
+                      : 'text-[#64748B]'
                   }`}
                 >
-                  {stg.isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : stg.num}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-[#F4F2FA] light:text-[#242033]">{stg.title}</span>
-                    {stg.timestamp && (
-                      <span className="text-[10px] font-mono text-[#A78BFA] light:text-[#6D28D9] font-medium">
-                        {stg.timestamp}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-[#AAA6BC] light:text-[#625D74] mt-0.5">{stg.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+                  {st.title}
+                </span>
 
-      {/* Live Queue Position & Wait Card (Active when checked in or in consultation) */}
-      {(status === 'checked_in' || status === 'waiting' || status === 'in_consultation') && (
-        <div className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Wait Time Display */}
-          <div className="bg-[#222233] light:bg-[#F0EFF7] rounded-xl p-4 border border-[#343347] light:border-[#DDD9E9]">
-            <div className="flex items-center justify-between text-xs font-bold text-[#F4F2FA] light:text-[#242033]">
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-[#A78BFA] light:text-[#6D28D9]" />
-                <span>Adaptive Estimated Wait</span>
-              </div>
-              <span className="text-[10px] uppercase font-semibold text-[#8B5CF6] light:text-[#6D28D9] bg-[#29213D] light:bg-[#EDE9FE] px-2 py-0.5 rounded">
-                Live
-              </span>
-            </div>
+                {/* Node Description & Timestamp */}
+                <span className="text-[10px] text-[#94A3B8] light:text-[#64748B] mt-0.5 max-w-[120px] leading-tight hidden sm:block">
+                  {st.desc}
+                </span>
 
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#F4F2FA] light:text-[#242033]">
-                {status === 'in_consultation' ? '0' : live_prediction?.predicted_wait_minutes || '14'}
-              </span>
-              <span className="text-xs font-semibold text-[#AAA6BC] light:text-[#625D74]">minutes</span>
-              <span className="text-[11px] text-[#817C95] light:text-[#777188]">
-                (±{live_prediction?.uncertainty_window_minutes || 3}m)
-              </span>
-            </div>
-
-            <div className="mt-3 text-[11px] text-[#AAA6BC] light:text-[#625D74]">
-              Expected Start:{' '}
-              <span className="font-semibold text-[#F4F2FA] light:text-[#242033]">
-                {status === 'in_consultation'
-                  ? 'Consultation in Progress'
-                  : live_prediction?.predicted_start_time
-                  ? new Date(live_prediction.predicted_start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : 'Approx 10:45 AM'}
-              </span>
-            </div>
-          </div>
-
-          {/* Explainable Rationales Breakdown */}
-          <div className="md:col-span-2 bg-[#222233] light:bg-[#F0EFF7] rounded-xl p-4 border border-[#343347] light:border-[#DDD9E9] flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-[#F4F2FA] light:text-[#242033] mb-2.5">
-                <Sparkles className="w-4 h-4 text-[#A78BFA] light:text-[#6D28D9]" />
-                <span>Why is this my estimate? (Explainable Operational Engine)</span>
-              </div>
-
-              <div className="space-y-1.5 text-xs text-[#AAA6BC] light:text-[#625D74]">
-                {live_prediction?.explanations?.length ? (
-                  live_prediction.explanations.map((exp, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#8B5CF6] light:text-[#6D28D9] shrink-0 mt-0.5" />
-                      <span>{exp}</span>
-                    </div>
-                  ))
-                ) : (
-                  <>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#8B5CF6] light:text-[#6D28D9] shrink-0 mt-0.5" />
-                      <span>1 consultation in progress with Dr. {doctor_name} (~6m remaining).</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#8B5CF6] light:text-[#6D28D9] shrink-0 mt-0.5" />
-                      <span>1 patient checked in ahead in queue.</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#8B5CF6] light:text-[#6D28D9] shrink-0 mt-0.5" />
-                      <span>Paced against historical median duration for {department_name} (18 mins).</span>
-                    </div>
-                  </>
+                {st.timestamp && (
+                  <span className="text-[9px] font-mono font-semibold text-[#60A5FA] light:text-[#2563EB] mt-0.5">
+                    {st.timestamp}
+                  </span>
                 )}
               </div>
-            </div>
-
-            <p className="text-[10px] text-[#817C95] light:text-[#777188] mt-3 italic">
-              Estimates dynamically update based on active consultation pacing, arrival punctuality, and emergency clinical triage.
-            </p>
+            ))}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Completed Consultation Summary */}
-      {status === 'completed' && consultation_completed_at && (
-        <div className="pt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          <div className="p-3.5 rounded-xl bg-[#222233] light:bg-[#F0EFF7] border border-[#343347] light:border-[#DDD9E9]">
-            <span className="text-[11px] text-[#817C95] light:text-[#777188]">Consultation Started</span>
-            <div className="font-bold text-[#F4F2FA] light:text-[#242033] mt-0.5">
-              {consultation_started_at ? new Date(consultation_started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:15 AM'}
+      {/* Dynamic Wait-Time & Prediction Intelligence Panel */}
+      {(status === 'checked_in' || status === 'waiting') && live_prediction && (
+        <div className="mt-2 p-4 rounded-xl bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-[#151D31] light:bg-[#EFF6FF] border border-[#29344D] light:border-[#BFDBFE] flex flex-col items-center justify-center shrink-0">
+              <span className="text-[9px] font-bold uppercase text-[#94A3B8] light:text-[#64748B] leading-none">Queue</span>
+              <span className="text-xl font-extrabold text-[#60A5FA] light:text-[#2563EB] leading-tight">
+                #{live_prediction.queue_position}
+              </span>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-[#F1F5F9] light:text-[#0F172A]">
+                  Estimated Wait: ~{live_prediction.estimated_wait_minutes} Minutes
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#151D31] light:bg-[#EFF6FF] text-[#60A5FA] light:text-[#2563EB] border border-[#29344D] light:border-[#BFDBFE] font-semibold">
+                  Confidence: {Math.round((live_prediction.confidence_score || 0.88) * 100)}%
+                </span>
+              </div>
+              <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
+                Expected Call Time:{' '}
+                <strong className="text-[#F1F5F9] light:text-[#0F172A]">
+                  {new Date(live_prediction.estimated_consultation_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </strong>
+              </p>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-[#222233] light:bg-[#F0EFF7] border border-[#343347] light:border-[#DDD9E9]">
-            <span className="text-[11px] text-[#817C95] light:text-[#777188]">Consultation Concluded</span>
-            <div className="font-bold text-[#F4F2FA] light:text-[#242033] mt-0.5">
-              {new Date(consultation_completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[#222233] light:bg-[#F0EFF7] border border-[#343347] light:border-[#DDD9E9]">
-            <span className="text-[11px] text-[#817C95] light:text-[#777188]">Total Recorded Duration</span>
-            <div className="font-bold text-[#A78BFA] light:text-[#6D28D9] mt-0.5">
-              {consultation_duration_minutes || 18} minutes
-            </div>
+          {/* Explainable Factor Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#94A3B8] light:text-[#475569]">
+            <span className="px-2.5 py-1 rounded-md bg-[#151D31] light:bg-white border border-[#29344D] light:border-[#E2E8F0]">
+              {live_prediction.factors?.patients_ahead || 0} Patients Ahead
+            </span>
+            <span className="px-2.5 py-1 rounded-md bg-[#151D31] light:bg-white border border-[#29344D] light:border-[#E2E8F0]">
+              Doctor Pacing: {live_prediction.factors?.doctor_pacing_factor || 1.0}x
+            </span>
           </div>
         </div>
       )}
     </div>
   );
 };
+
+export default PatientTracker;

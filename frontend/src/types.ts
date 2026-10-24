@@ -6,6 +6,7 @@ export interface User {
   name: string;
   role: Role;
   phone?: string;
+  mrn?: string;
   patient_id?: string;
   doctor_id?: string;
   organization_id?: string;
@@ -136,6 +137,7 @@ export interface QueueEntry {
   priority_score?: number;
   queue_position?: number;
   predicted_wait_minutes?: number;
+  estimated_wait_minutes?: number;
   predicted_start_time?: string;
   explanations?: string[];
   uncertainty_window_minutes?: number;
@@ -162,11 +164,13 @@ export interface PrescriptionMedication {
   dosage: string;
   duration: string;
   instructions: string;
+  frequency?: string;
 }
 
 export interface Prescription {
   _id: string;
   rx_number: string;
+  prescription_number?: string;
   patient_id: string;
   patient_name: string;
   doctor_id: string;
@@ -174,9 +178,11 @@ export interface Prescription {
   department_name: string;
   organization_name: string;
   date: string;
+  issued_date?: string;
   diagnosis: string;
   medications: PrescriptionMedication[];
   advice: string;
+  notes?: string;
   follow_up: string;
 }
 
@@ -199,6 +205,15 @@ export interface Prediction {
   doctor_id: string;
   organization_id: string;
   predicted_wait_minutes: number;
+  estimated_wait_minutes?: number;
+  queue_position?: number;
+  confidence_score?: number;
+  estimated_consultation_time?: string;
+  factors?: {
+    patients_ahead?: number;
+    doctor_pacing_factor?: number;
+    nominal_duration_minutes?: number;
+  };
   predicted_start_time: string;
   uncertainty_window_minutes: number;
   patients_ahead_count: number;
@@ -253,6 +268,12 @@ export interface SimulationResult {
     late_arrival_rate_pct: number;
     no_show_rate_pct: number;
     doctor_delay_minutes: number;
+  };
+  summary?: {
+    completed_patients?: number;
+    avg_wait_minutes?: number;
+    backlog_patients?: number;
+    doctor_utilization_pct?: number;
   };
   results: {
     patients_served: number;

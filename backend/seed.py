@@ -144,7 +144,7 @@ DOCTOR_SPECIALISTS = [
 
 def seed_database(clear_existing: bool = True):
     """Deterministically populates database with coherent healthcare data."""
-    rng = random.Random(2026) # Fixed seed for reproducible hackathon evaluation
+    rng = random.Random(2026) # Fixed seed for deterministic healthcare evaluation
     db = get_db()
 
     print("[Seed] Initializing ClinicQueue coherent healthcare dataset...")

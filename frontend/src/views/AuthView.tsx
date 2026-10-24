@@ -17,7 +17,8 @@ import {
   User,
   UserCheck,
   Phone,
-  Calendar,
+  Eye,
+  EyeOff,
   AlertCircle,
   KeyRound,
   CheckCircle2
@@ -33,7 +34,6 @@ interface RoleConfig {
   demoEmail: string;
   demoPassword: string;
   demoPersona: string;
-  color: string;
 }
 
 const ROLE_CONFIGS: Record<string, RoleConfig> = {
@@ -46,20 +46,18 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
     targetRoute: '/patient',
     demoEmail: 'patient@clinicqueue.demo',
     demoPassword: 'Demo123!',
-    demoPersona: 'Rohan Mehta (Patient)',
-    color: '#8B5CF6'
+    demoPersona: 'Rohan Mehta (Patient)'
   },
   doctor: {
     role: 'doctor',
     name: 'Doctor Portal',
-    badge: 'Clinical Access',
+    badge: 'Clinical Staff Access',
     desc: 'Review assigned patients, call the next in line, and update consultation durations.',
     icon: Stethoscope,
     targetRoute: '/doctor',
     demoEmail: 'doctor.sharma@clinicqueue.demo',
     demoPassword: 'Demo123!',
-    demoPersona: 'Dr. Rajesh Sharma (Cardiology)',
-    color: '#7C3AED'
+    demoPersona: 'Dr. Rajesh Sharma (Cardiology)'
   },
   receptionist: {
     role: 'receptionist',
@@ -70,8 +68,7 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
     targetRoute: '/reception',
     demoEmail: 'reception@clinicqueue.demo',
     demoPassword: 'Demo123!',
-    demoPersona: 'Ananya Sen (Reception Desk)',
-    color: '#6D28D9'
+    demoPersona: 'Ananya Sen (Reception Desk)'
   }
 };
 
@@ -81,7 +78,6 @@ export const AuthView: React.FC = () => {
   const { login, register, switchRole } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  // Normalize role or fallback
   const validRoleKey = portalRole && ROLE_CONFIGS[portalRole.toLowerCase()] ? portalRole.toLowerCase() : 'patient';
   const config = ROLE_CONFIGS[validRoleKey];
   const Icon = config.icon;
@@ -89,6 +85,7 @@ export const AuthView: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [age, setAge] = useState<number | ''>(32);
@@ -106,10 +103,10 @@ export const AuthView: React.FC = () => {
     try {
       if (mode === 'login') {
         const loggedInUser = await login(email, password);
-        // Verify role authorization
+        // Authorization check
         if (loggedInUser.role !== config.role) {
           setError(
-            `Account role mismatch: This account belongs to the "${loggedInUser.role}" role, but you are logging into the "${config.name}". Redirecting to your assigned portal...`
+            `Account role mismatch: This account belongs to the "${loggedInUser.role}" role, but you are signing into the "${config.name}". Redirecting to your assigned portal...`
           );
           setTimeout(() => {
             const redirectPath = loggedInUser.role === 'receptionist' ? '/reception' : `/${loggedInUser.role}`;
@@ -119,9 +116,14 @@ export const AuthView: React.FC = () => {
         }
         navigate(config.targetRoute, { replace: true });
       } else {
-        // Registration (patients only)
+        // Patient registration
         if (!name.trim() || !email.trim() || !password) {
-          setError('Please fill in all required fields.');
+          setError('Please provide full name, email, and password.');
+          setLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters.');
           setLoading(false);
           return;
         }
@@ -133,7 +135,7 @@ export const AuthView: React.FC = () => {
           age: typeof age === 'number' ? age : undefined,
           gender
         });
-        setSuccessMsg('Account created successfully! Entering Patient Portal...');
+        setSuccessMsg('Patient account registered successfully. Entering portal...');
         setTimeout(() => {
           navigate(config.targetRoute, { replace: true });
         }, 800);
@@ -149,8 +151,7 @@ export const AuthView: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      // Use switchRole for fast, reliable demo access directly into the designated role
-      const user = await switchRole(config.role);
+      await switchRole(config.role);
       navigate(config.targetRoute, { replace: true });
     } catch (err: any) {
       setError(`Demo switch failed: ${err.message}`);
@@ -166,72 +167,72 @@ export const AuthView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#111118] light:bg-[#F7F7FB] text-[#F4F2FA] light:text-[#242033] transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-[#0B1020] light:bg-[#F8FAFC] text-[#F1F5F9] light:text-[#0F172A] transition-colors duration-150">
       {/* Top Header */}
-      <header className="border-b border-[#343347] light:border-[#DDD9E9] bg-[#15151F]/80 light:bg-white/80 backdrop-blur-md sticky top-0 z-30 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Back to Portal Selection */}
+      <header className="border-b border-[#29344D] light:border-[#E2E8F0] bg-[#0F172A] light:bg-white h-14 flex items-center transition-colors">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 w-full flex items-center justify-between">
+          {/* Back button */}
           <Link
             to="/"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#AAA6BC] light:text-[#625D74] hover:text-[#F4F2FA] light:hover:text-[#242033] transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#94A3B8] light:text-[#475569] hover:text-[#60A5FA] light:hover:text-[#2563EB] transition-colors"
           >
-            <ArrowLeft className="w-4 h-4 text-[#8B5CF6]" />
+            <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back to Portal Selection</span>
           </Link>
 
-          {/* Brand Logo */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#8B5CF6] to-[#6D28D9] flex items-center justify-center text-white">
-              <Activity className="w-4 h-4" />
+          {/* Brand */}
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[#151D31] light:bg-[#EFF6FF] border border-[#29344D] light:border-[#BFDBFE] flex items-center justify-center text-[#60A5FA] light:text-[#2563EB]">
+              <Activity className="w-3.5 h-3.5" />
             </div>
-            <span className="font-bold text-[#F4F2FA] light:text-[#242033] hidden sm:inline">ClinicQueue</span>
+            <span className="font-bold text-sm text-[#F1F5F9] light:text-[#0F172A]">ClinicQueue</span>
           </div>
 
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
             aria-label="Toggle theme"
-            className="p-2.5 rounded-xl border border-[#343347] light:border-[#DDD9E9] bg-[#1B1B28] light:bg-[#F0EFF7] text-[#AAA6BC] light:text-[#625D74] hover:text-[#F4F2FA] light:hover:text-[#242033] transition-colors"
+            className="p-1.5 rounded-lg border border-[#29344D] light:border-[#E2E8F0] bg-[#151D31] light:bg-[#F1F5F9] text-[#94A3B8] light:text-[#475569] hover:text-[#F1F5F9] light:hover:text-[#0F172A] transition-colors"
           >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-[#FBBF24]" /> : <Moon className="w-4 h-4 text-[#6D28D9]" />}
+            {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-[#FBBF24]" /> : <Moon className="w-3.5 h-3.5 text-[#2563EB]" />}
           </button>
         </div>
       </header>
 
-      {/* Main Authentication Card */}
-      <main className="flex-1 flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+      {/* Main Authentication Form */}
+      <main className="flex-1 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
-          {/* Role Header Banner */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#29213D] light:bg-[#EDE9FE] border border-[#343347] light:border-[#DDD9E9] text-[#A78BFA] light:text-[#6D28D9] mb-4 shadow-md">
-              <Icon className="w-8 h-8" />
+          {/* Role Header */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#151D31] light:bg-[#EFF6FF] border border-[#29344D] light:border-[#BFDBFE] text-[#60A5FA] light:text-[#2563EB] mb-3 shadow-xs">
+              <Icon className="w-6 h-6" />
             </div>
 
-            <div className="inline-block px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#8B5CF6]/15 text-[#A78BFA] light:bg-[#EDE9FE] light:text-[#6D28D9] mb-2">
+            <div className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#151D31] light:bg-[#EFF6FF] text-[#60A5FA] light:text-[#2563EB] border border-[#29344D] light:border-[#BFDBFE] mb-2">
               {config.badge}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#F4F2FA] light:text-[#242033]">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#F1F5F9] light:text-[#0F172A]">
               {mode === 'login' ? `${config.name} Sign In` : 'New Patient Registration'}
             </h1>
-            <p className="mt-2 text-xs sm:text-sm text-[#AAA6BC] light:text-[#625D74]">
+            <p className="mt-1 text-xs text-[#94A3B8] light:text-[#475569]">
               {config.desc}
             </p>
           </div>
 
-          {/* Mode Switcher for Patients */}
+          {/* Mode Switcher (Patient only) */}
           {config.role === 'patient' && (
-            <div className="flex bg-[#1B1B28] light:bg-[#EAE7F1] p-1 rounded-xl mb-6 border border-[#343347] light:border-[#DDD9E9]">
+            <div className="flex bg-[#0F172A] light:bg-[#F1F5F9] p-1 rounded-lg mb-4 border border-[#29344D] light:border-[#E2E8F0]">
               <button
                 type="button"
                 onClick={() => {
                   setMode('login');
                   setError(null);
                 }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
                   mode === 'login'
-                    ? 'bg-[#8B5CF6] text-white shadow-xs'
-                    : 'text-[#AAA6BC] light:text-[#625D74] hover:text-[#F4F2FA] light:hover:text-[#242033]'
+                    ? 'bg-[#60A5FA] text-[#0B1020] shadow-xs'
+                    : 'text-[#94A3B8] light:text-[#475569] hover:text-[#F1F5F9] light:hover:text-[#0F172A]'
                 }`}
               >
                 Sign In
@@ -242,10 +243,10 @@ export const AuthView: React.FC = () => {
                   setMode('register');
                   setError(null);
                 }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
                   mode === 'register'
-                    ? 'bg-[#8B5CF6] text-white shadow-xs'
-                    : 'text-[#AAA6BC] light:text-[#625D74] hover:text-[#F4F2FA] light:hover:text-[#242033]'
+                    ? 'bg-[#60A5FA] text-[#0B1020] shadow-xs'
+                    : 'text-[#94A3B8] light:text-[#475569] hover:text-[#F1F5F9] light:hover:text-[#0F172A]'
                 }`}
               >
                 Create Account
@@ -254,60 +255,60 @@ export const AuthView: React.FC = () => {
           )}
 
           {/* Form Card */}
-          <div className="bg-[#1B1B28] light:bg-white rounded-2xl border border-[#343347] light:border-[#DDD9E9] p-6 sm:p-8 shadow-xl">
+          <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-6 shadow-md">
             {error && (
-              <div className="mb-5 p-3.5 rounded-xl bg-red-950/40 border border-red-800 text-red-200 text-xs flex items-start gap-2.5">
+              <div className="mb-4 p-3 rounded-lg bg-red-950/40 border border-red-800 text-red-200 text-xs flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
             {successMsg && (
-              <div className="mb-5 p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-800 text-emerald-200 text-xs flex items-start gap-2.5">
+              <div className="mb-4 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800 text-emerald-200 text-xs flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>{successMsg}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
               {mode === 'register' && (
                 <>
                   <div>
-                    <label className="block text-xs font-medium text-[#AAA6BC] light:text-[#625D74] mb-1.5">
+                    <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">
                       Full Legal Name
                     </label>
                     <div className="relative">
-                      <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#817C95]" />
+                      <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
                       <input
                         type="text"
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Rohan Mehta"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#15151F] light:bg-[#F7F7FB] border border-[#343347] light:border-[#DDD9E9] text-[#F4F2FA] light:text-[#242033] text-sm focus:outline-none focus:ring-2 focus:ring-[#8B5CF6] transition-all"
+                        className="w-full pl-9 pr-3 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-[#F1F5F9] light:text-[#0F172A] text-xs focus:outline-none focus:ring-1 focus:ring-[#60A5FA]"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-medium text-[#AAA6BC] light:text-[#625D74] mb-1.5">
+                      <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">
                         Phone Number
                       </label>
                       <div className="relative">
-                        <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#817C95]" />
+                        <Phone className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#64748B]" />
                         <input
                           type="tel"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="+91 98765 43210"
-                          className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#15151F] light:bg-[#F7F7FB] border border-[#343347] light:border-[#DDD9E9] text-[#F4F2FA] light:text-[#242033] text-xs focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]"
+                          className="w-full pl-8 pr-2.5 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-[#F1F5F9] light:text-[#0F172A] text-xs focus:outline-none focus:ring-1 focus:ring-[#60A5FA]"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-[#AAA6BC] light:text-[#625D74] mb-1.5">
+                      <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">
                         Age
                       </label>
                       <input
@@ -316,7 +317,7 @@ export const AuthView: React.FC = () => {
                         max="120"
                         value={age}
                         onChange={(e) => setAge(e.target.value === '' ? '' : parseInt(e.target.value))}
-                        className="w-full px-3 py-2 rounded-xl bg-[#15151F] light:bg-[#F7F7FB] border border-[#343347] light:border-[#DDD9E9] text-[#F4F2FA] light:text-[#242033] text-xs focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]"
+                        className="w-full px-2.5 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-[#F1F5F9] light:text-[#0F172A] text-xs focus:outline-none focus:ring-1 focus:ring-[#60A5FA]"
                       />
                     </div>
                   </div>
@@ -324,70 +325,78 @@ export const AuthView: React.FC = () => {
               )}
 
               <div>
-                <label className="block text-xs font-medium text-[#AAA6BC] light:text-[#625D74] mb-1.5">
+                <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#817C95]" />
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={config.demoEmail}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#15151F] light:bg-[#F7F7FB] border border-[#343347] light:border-[#DDD9E9] text-[#F4F2FA] light:text-[#242033] text-sm focus:outline-none focus:ring-2 focus:ring-[#8B5CF6] transition-all"
+                    className="w-full pl-9 pr-3 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-[#F1F5F9] light:text-[#0F172A] text-xs focus:outline-none focus:ring-1 focus:ring-[#60A5FA]"
                   />
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-medium text-[#AAA6BC] light:text-[#625D74]">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569]">
                     Password
                   </label>
                   {mode === 'login' && (
                     <button
                       type="button"
                       onClick={handleFillDemoCreds}
-                      className="text-[11px] text-[#8B5CF6] hover:underline"
+                      className="text-[11px] text-[#60A5FA] light:text-[#2563EB] hover:underline"
                     >
                       Fill Demo Credentials
                     </button>
                   )}
                 </div>
                 <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#817C95]" />
+                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#15151F] light:bg-[#F7F7FB] border border-[#343347] light:border-[#DDD9E9] text-[#F4F2FA] light:text-[#242033] text-sm focus:outline-none focus:ring-2 focus:ring-[#8B5CF6] transition-all"
+                    className="w-full pl-9 pr-10 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-[#F1F5F9] light:text-[#0F172A] text-xs focus:outline-none focus:ring-1 focus:ring-[#60A5FA]"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#94A3B8]"
+                    aria-label="Toggle password visibility"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-2 py-3 px-4 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] disabled:opacity-50 text-white font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                className="w-full mt-1 py-2.5 px-4 rounded-lg bg-[#60A5FA] hover:bg-[#3B82F6] light:bg-[#2563EB] light:hover:bg-[#1D4ED8] disabled:opacity-50 text-[#0B1020] light:text-white font-semibold text-xs shadow-xs transition-colors flex items-center justify-center gap-2"
               >
                 {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
-                    <span>{mode === 'login' ? `Sign In to ${config.name}` : 'Register & Continue'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <span>{mode === 'login' ? `Sign In to ${config.name}` : 'Create Patient Account'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
             </form>
 
             {/* Quick Demo Access Button */}
-            <div className="mt-6 pt-5 border-t border-[#29293A] light:border-[#EAE7F1]">
-              <div className="text-center mb-3">
-                <span className="text-[11px] text-[#817C95] light:text-[#777188] uppercase tracking-wider font-semibold">
+            <div className="mt-5 pt-4 border-t border-[#1E293B] light:border-[#E2E8F0]">
+              <div className="text-center mb-2.5">
+                <span className="text-[10px] text-[#64748B] light:text-[#64748B] uppercase tracking-wider font-semibold">
                   Or Test With Demo Account
                 </span>
               </div>
@@ -396,10 +405,10 @@ export const AuthView: React.FC = () => {
                 type="button"
                 onClick={handleInstantDemo}
                 disabled={loading}
-                className="w-full py-2.5 px-4 rounded-xl border border-[#343347] light:border-[#DDD9E9] bg-[#222233] hover:bg-[#29293E] light:bg-[#F0EFF7] light:hover:bg-[#EAE7F1] text-[#F4F2FA] light:text-[#242033] text-xs font-semibold flex items-center justify-center gap-2 transition-all"
+                className="w-full py-2 px-3 rounded-lg border border-[#29344D] light:border-[#E2E8F0] bg-[#1B263D] hover:bg-[#22304C] light:bg-[#F1F5F9] light:hover:bg-[#E2E8F0] text-[#F1F5F9] light:text-[#0F172A] text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
               >
-                <KeyRound className="w-3.5 h-3.5 text-[#A78BFA] light:text-[#6D28D9]" />
-                <span>Instant 1-Click Access as {config.demoPersona}</span>
+                <KeyRound className="w-3.5 h-3.5 text-[#60A5FA] light:text-[#2563EB]" />
+                <span>Instant Access as {config.demoPersona}</span>
               </button>
             </div>
           </div>

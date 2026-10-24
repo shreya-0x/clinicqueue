@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { Appointment, Doctor, Department } from '../types';
@@ -14,7 +15,6 @@ import {
   ChevronRight,
   User,
   Activity,
-  Sparkles,
   Search,
   Plus,
   HelpCircle,
@@ -25,31 +25,38 @@ import {
   CreditCard,
   UserCheck,
   Check,
-  Filter
+  Filter,
+  Bell,
+  Settings,
+  CalendarPlus,
+  ArrowRight
 } from 'lucide-react';
 
 export const PatientView: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'visits' | 'prescriptions' | 'insurance'>('visits');
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedApptId, setSelectedApptId] = useState<string | null>(null);
 
-  // Filter & Search states
+  // Filters
   const [filterStatus, setFilterStatus] = useState<'all' | 'upcoming' | 'today' | 'past' | 'cancelled'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Booking modal state
+  // Booking state
   const [showBookModal, setShowBookModal] = useState(false);
   const [selectedDocId, setSelectedDocId] = useState('');
   const [apptDate, setApptDate] = useState('2026-10-25');
   const [apptTime, setApptTime] = useState('11:00');
   const [apptType, setApptType] = useState('standard');
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState('All');
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingMsg, setBookingMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Check-in modal state
+  // Check-in state
   const [checkInLoading, setCheckInLoading] = useState(false);
 
   const fetchData = async () => {
@@ -63,7 +70,6 @@ export const PatientView: React.FC = () => {
       setAppointments(list);
       setDoctors(docsRes.doctors || []);
 
-      // Auto-select checked_in, in_consultation, or first appointment
       const active = list.find(
         (a) => a.status === 'checked_in' || a.status === 'waiting' || a.status === 'in_consultation'
       );
@@ -82,7 +88,6 @@ export const PatientView: React.FC = () => {
   useEffect(() => {
     fetchData();
     const interval = setInterval(async () => {
-      // Polling for live queue state transitions
       try {
         const apptsRes = await api.getAppointments();
         if (apptsRes.appointments) {
@@ -109,7 +114,7 @@ export const PatientView: React.FC = () => {
   const handleBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDocId) {
-      setBookingMsg({ type: 'error', text: 'Please select a doctor.' });
+      setBookingMsg({ type: 'error', text: 'Please select a physician.' });
       return;
     }
     setBookingLoading(true);
@@ -129,7 +134,7 @@ export const PatientView: React.FC = () => {
         if (res.appointment?._id) {
           setSelectedApptId(res.appointment._id);
         }
-      }, 1400);
+      }, 1200);
     } catch (err: any) {
       setBookingMsg({ type: 'error', text: err.message || 'Booking failed.' });
     } finally {
@@ -137,456 +142,519 @@ export const PatientView: React.FC = () => {
     }
   };
 
-  // Appointment counts derived from authentic database records
+  // Derived counts
   const upcomingCount = appointments.filter((a) => a.status === 'booked').length;
   const awaitingCheckInCount = appointments.filter((a) => a.status === 'booked' && a.appointment_date === '2026-10-25').length;
   const inProgressCount = appointments.filter((a) => a.status === 'in_consultation' || a.status === 'checked_in' || a.status === 'waiting').length;
   const completedCount = appointments.filter((a) => a.status === 'completed').length;
-  const cancelledCount = appointments.filter((a) => a.status === 'cancelled').length;
 
-  // Filtered appointments list
   const filteredAppointments = appointments.filter((a) => {
-    // Status filter
     if (filterStatus === 'upcoming' && a.status !== 'booked') return false;
     if (filterStatus === 'today' && a.appointment_date !== '2026-10-25') return false;
     if (filterStatus === 'past' && a.status !== 'completed') return false;
     if (filterStatus === 'cancelled' && a.status !== 'cancelled') return false;
-
-    // Search query
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      const matchDoc = a.doctor_name.toLowerCase().includes(query);
-      const matchDept = a.department_name.toLowerCase().includes(query);
-      const matchRef = a.booking_reference.toLowerCase().includes(query);
-      return matchDoc || matchDept || matchRef;
+      const q = searchQuery.toLowerCase();
+      return (
+        a.doctor_name.toLowerCase().includes(q) ||
+        a.department_name.toLowerCase().includes(q) ||
+        a.booking_reference.toLowerCase().includes(q)
+      );
     }
     return true;
   });
 
-  const selectedAppointment = appointments.find((a) => a._id === selectedApptId) || (appointments.length > 0 ? appointments[0] : null);
+  const selectedAppt = appointments.find((a) => a._id === selectedApptId) || appointments[0];
+  const nextAppt = appointments.find((a) => a.status === 'booked' || a.status === 'checked_in' || a.status === 'waiting' || a.status === 'in_consultation');
+
+  const departments = ['All', ...Array.from(new Set(doctors.map((d) => d.department_name)))];
+  const filteredDoctors = doctors.filter((doc) => {
+    if (selectedDeptFilter !== 'All' && doc.department_name !== selectedDeptFilter) return false;
+    return true;
+  });
+
+  // Determine active view mode based on pathname
+  const path = location.pathname;
+  const isBookView = path === '/patient/book';
+  const isAppointmentsView = path === '/patient/appointments';
+  const isTrackerView = path === '/patient/tracker';
+  const isHistoryView = path === '/patient/history';
+  const isNotificationsView = path === '/patient/notifications';
+  const isProfileView = path === '/patient/profile' || path === '/profile';
+  const isSettingsView = path === '/patient/settings';
+
+  if (isProfileView) {
+    return <ProfileView />;
+  }
+
+  if (isHistoryView) {
+    return <PrescriptionsView />;
+  }
 
   return (
-    <div className="min-h-screen bg-[#111118] light:bg-[#F7F7FB] text-[#F4F2FA] light:text-[#242033] py-8 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Welcome Header */}
-        <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-6 border border-[#343347] light:border-[#DDD9E9] shadow-xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#29213D] light:bg-[#EDE9FE] text-[#A78BFA] light:text-[#6D28D9] mb-1">
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Patient Portal</span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Welcome, {user?.name || 'Rohan Mehta'}
-            </h1>
-            <p className="text-xs text-[#AAA6BC] light:text-[#625D74] mt-0.5">
-              MRN: {user?.patient_profile?.mrn || 'CQ-MRN-00001'} • MetroCare Apex Hospital
-            </p>
-          </div>
-
-          <button
-            onClick={() => setShowBookModal(true)}
-            className="px-4 py-2.5 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] light:bg-[#6D28D9] light:hover:bg-[#5B21B6] text-white font-semibold text-xs shadow-xs flex items-center gap-1.5 transition-colors shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Book New Consultation</span>
-          </button>
-        </div>
-
-        {/* Portal Sub-Navigation Tabs */}
-        <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-1">
-          <button
-            onClick={() => setActiveTab('visits')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-              activeTab === 'visits'
-                ? 'bg-[#8B5CF6] light:bg-[#6D28D9] text-white shadow-xs'
-                : 'bg-[#1B1B28] light:bg-white text-[#AAA6BC] light:text-[#625D74] hover:text-[#F4F2FA] light:hover:text-[#242033] border border-[#343347] light:border-[#DDD9E9]'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>My Appointments & Visit Tracker</span>
-            {inProgressCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('prescriptions')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-              activeTab === 'prescriptions'
-                ? 'bg-[#8B5CF6] light:bg-[#6D28D9] text-white shadow-xs'
-                : 'bg-[#1B1B28] light:bg-white text-[#AAA6BC] light:text-[#625D74] hover:text-[#F4F2FA] light:hover:text-[#242033] border border-[#343347] light:border-[#DDD9E9]'
-            }`}
-          >
-            <Pill className="w-4 h-4" />
-            <span>Digital Prescriptions</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('insurance')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-              activeTab === 'insurance'
-                ? 'bg-[#8B5CF6] light:bg-[#6D28D9] text-white shadow-xs'
-                : 'bg-[#1B1B28] light:bg-white text-[#AAA6BC] light:text-[#625D74] hover:text-[#F4F2FA] light:hover:text-[#242033] border border-[#343347] light:border-[#DDD9E9]'
-            }`}
-          >
-            <CreditCard className="w-4 h-4" />
-            <span>Insurance & Health Profile</span>
-          </button>
-        </div>
-
-        {/* TAB 1: MY APPOINTMENTS & VISIT TRACKER */}
-        {activeTab === 'visits' && (
-          <div className="space-y-8 animate-fade-in">
-            {/* A. Appointment Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-              <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-4 border border-[#343347] light:border-[#DDD9E9]">
-                <div className="text-[11px] font-semibold text-[#817C95] light:text-[#777188] uppercase tracking-wider">
-                  Upcoming
-                </div>
-                <div className="text-2xl font-extrabold text-[#F4F2FA] light:text-[#242033] mt-1">
-                  {upcomingCount}
-                </div>
-                <p className="text-[10px] text-[#AAA6BC] light:text-[#625D74] mt-0.5">Scheduled visits</p>
-              </div>
-
-              <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-4 border border-[#343347] light:border-[#DDD9E9]">
-                <div className="text-[11px] font-semibold text-amber-400 light:text-amber-600 uppercase tracking-wider">
-                  Check-In Ready
-                </div>
-                <div className="text-2xl font-extrabold text-amber-400 light:text-amber-600 mt-1">
-                  {awaitingCheckInCount}
-                </div>
-                <p className="text-[10px] text-[#AAA6BC] light:text-[#625D74] mt-0.5">Today's bookings</p>
-              </div>
-
-              <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-4 border border-[#343347] light:border-[#DDD9E9]">
-                <div className="text-[11px] font-semibold text-[#A78BFA] light:text-[#6D28D9] uppercase tracking-wider">
-                  In Progress
-                </div>
-                <div className="text-2xl font-extrabold text-[#A78BFA] light:text-[#6D28D9] mt-1">
-                  {inProgressCount}
-                </div>
-                <p className="text-[10px] text-[#AAA6BC] light:text-[#625D74] mt-0.5">In queue / consultation</p>
-              </div>
-
-              <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-4 border border-[#343347] light:border-[#DDD9E9]">
-                <div className="text-[11px] font-semibold text-emerald-400 light:text-emerald-600 uppercase tracking-wider">
-                  Completed
-                </div>
-                <div className="text-2xl font-extrabold text-emerald-400 light:text-emerald-600 mt-1">
-                  {completedCount}
-                </div>
-                <p className="text-[10px] text-[#AAA6BC] light:text-[#625D74] mt-0.5">Concluded visits</p>
-              </div>
-
-              <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-4 border border-[#343347] light:border-[#DDD9E9]">
-                <div className="text-[11px] font-semibold text-rose-400 light:text-rose-600 uppercase tracking-wider">
-                  Cancelled
-                </div>
-                <div className="text-2xl font-extrabold text-rose-400 light:text-rose-600 mt-1">
-                  {cancelledCount}
-                </div>
-                <p className="text-[10px] text-[#AAA6BC] light:text-[#625D74] mt-0.5">Prior cancellations</p>
-              </div>
-            </div>
-
-            {/* B. Live Visit Tracker for Selected / Active Appointment */}
-            {selectedAppointment ? (
+    <div className="space-y-6">
+      {/* 1. BOOK APPOINTMENT VIEW */}
+      {isBookView && (
+        <div className="space-y-6 animate-fade-in">
+          <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-[#1E293B] light:border-[#E2E8F0]">
               <div>
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6] animate-pulse" />
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-[#AAA6BC] light:text-[#625D74]">
-                      Selected Visit Tracker Stepper
-                    </h2>
-                  </div>
-                  <span className="text-xs text-[#817C95] light:text-[#777188]">
-                    Click any visit in the table below to inspect its timeline
-                  </span>
-                </div>
-                <PatientTracker
-                  appointment={selectedAppointment}
-                  onCheckIn={handleCheckIn}
-                  checkInLoading={checkInLoading}
-                />
-              </div>
-            ) : (
-              <div className="bg-[#1B1B28] light:bg-white rounded-2xl border border-[#343347] light:border-[#DDD9E9] p-8 text-center text-[#AAA6BC] light:text-[#625D74]">
-                <Calendar className="w-10 h-10 mx-auto mb-2 text-[#817C95]" />
-                <h3 className="text-base font-bold text-[#F4F2FA] light:text-[#242033]">No Appointments Found</h3>
-                <p className="text-xs mt-1">Book your first outpatient consultation using the button above.</p>
-              </div>
-            )}
-
-            {/* C. Appointments Filter and Complete History List */}
-            <div className="bg-[#1B1B28] light:bg-white rounded-2xl border border-[#343347] light:border-[#DDD9E9] p-6 shadow-xs">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-[#29293A] light:border-[#EAE7F1]">
-                <div>
-                  <h2 className="text-lg font-bold text-[#F4F2FA] light:text-[#242033]">Appointment History & Schedule</h2>
-                  <p className="text-xs text-[#AAA6BC] light:text-[#625D74]">
-                    Filter by status, search by physician or specialty, and select to inspect live progression.
-                  </p>
-                </div>
-
-                {/* Search Bar */}
-                <div className="relative w-full md:w-64">
-                  <Search className="w-3.5 h-3.5 text-[#817C95] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search doctor, dept, ref..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#222233] light:bg-[#F0EFF7] border border-[#343347] light:border-[#DDD9E9] text-xs text-[#F4F2FA] light:text-[#242033] focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6]"
-                  />
-                </div>
+                <h2 className="text-lg font-bold text-[#F1F5F9] light:text-[#0F172A]">
+                  Outpatient Doctor Directory & Booking
+                </h2>
+                <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
+                  Select a clinical specialty or physician to schedule an upcoming consultation.
+                </p>
               </div>
 
-              {/* Status Filter Tabs */}
-              <div className="flex items-center gap-2 py-4 overflow-x-auto border-b border-[#29293A] light:border-[#EAE7F1] text-xs">
-                <span className="text-[#817C95] light:text-[#777188] flex items-center gap-1 text-[11px] font-semibold mr-1">
-                  <Filter className="w-3 h-3" />
-                  Filter:
-                </span>
-                {(['all', 'upcoming', 'today', 'past', 'cancelled'] as const).map((st) => (
+              {/* Department Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+                {departments.map((dept) => (
                   <button
-                    key={st}
-                    onClick={() => setFilterStatus(st)}
-                    className={`px-3 py-1.5 rounded-lg capitalize font-medium transition-colors ${
-                      filterStatus === st
-                        ? 'bg-[#8B5CF6] light:bg-[#6D28D9] text-white font-semibold'
-                        : 'bg-[#222233] light:bg-[#F0EFF7] text-[#AAA6BC] light:text-[#625D74] hover:text-[#F4F2FA] light:hover:text-[#242033]'
+                    key={dept}
+                    onClick={() => setSelectedDeptFilter(dept)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                      selectedDeptFilter === dept
+                        ? 'bg-[#60A5FA] text-[#0B1020]'
+                        : 'bg-[#0F172A] light:bg-[#F1F5F9] text-[#94A3B8] hover:text-[#F1F5F9] border border-[#29344D] light:border-[#E2E8F0]'
                     }`}
                   >
-                    {st === 'all' ? `All (${appointments.length})` : st}
+                    {dept}
                   </button>
                 ))}
               </div>
+            </div>
 
-              {/* Table */}
-              <div className="overflow-x-auto mt-4">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#222233] light:bg-[#F0EFF7] text-[#817C95] light:text-[#777188] font-semibold uppercase tracking-wider text-[10px]">
-                    <tr>
-                      <th className="py-3 px-4">Booking Ref</th>
-                      <th className="py-3 px-4">Doctor & Department</th>
-                      <th className="py-3 px-4">Date & Time</th>
-                      <th className="py-3 px-4">Type</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#29293A] light:divide-[#EAE7F1]">
-                    {filteredAppointments.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-8 text-center text-[#817C95]">
-                          No appointments match the current filter.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredAppointments.map((a) => {
-                        const isSelected = selectedApptId === a._id;
-                        return (
-                          <tr
-                            key={a._id}
-                            onClick={() => setSelectedApptId(a._id)}
-                            className={`cursor-pointer transition-colors ${
-                              isSelected
-                                ? 'bg-[#29213D]/60 light:bg-[#EDE9FE]/60'
-                                : 'hover:bg-[#222233]/40 light:hover:bg-[#F0EFF7]/40'
-                            }`}
-                          >
-                            <td className="py-3.5 px-4 font-mono font-medium text-[#A78BFA] light:text-[#6D28D9]">
-                              {a.booking_reference}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="font-semibold text-[#F4F2FA] light:text-[#242033]">{a.doctor_name}</div>
-                              <div className="text-[11px] text-[#AAA6BC] light:text-[#625D74]">{a.department_name}</div>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="font-medium text-[#F4F2FA] light:text-[#242033]">{a.appointment_date}</div>
-                              <div className="text-[11px] text-[#AAA6BC] light:text-[#625D74]">{a.scheduled_time}</div>
-                            </td>
-                            <td className="py-3.5 px-4 capitalize font-medium text-[#AAA6BC] light:text-[#625D74]">
-                              {a.appointment_type.replace('_', ' ')}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span
-                                className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${
-                                  a.status === 'completed'
-                                    ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-800'
-                                    : a.status === 'checked_in' || a.status === 'waiting'
-                                    ? 'bg-[#29213D] text-[#A78BFA] border border-[#8B5CF6]'
-                                    : a.status === 'in_consultation'
-                                    ? 'bg-[#29213D] text-[#A78BFA] border border-[#8B5CF6] animate-pulse'
-                                    : a.status === 'cancelled'
-                                    ? 'bg-rose-950/70 text-rose-300 border border-rose-800'
-                                    : 'bg-[#222233] light:bg-[#F0EFF7] text-[#AAA6BC] light:text-[#625D74]'
-                                }`}
-                              >
-                                {a.status.replace('_', ' ')}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-right">
-                              {a.status === 'booked' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCheckIn(a._id);
-                                  }}
-                                  disabled={checkInLoading}
-                                  className="px-3 py-1.5 rounded-lg bg-[#8B5CF6] hover:bg-[#7C3AED] light:bg-[#6D28D9] light:hover:bg-[#5B21B6] text-white font-semibold text-xs transition-colors"
-                                >
-                                  Check In
-                                </button>
-                              )}
-                              {a.status === 'completed' && a.consultation_duration_minutes && (
-                                <span className="text-xs text-[#AAA6BC] light:text-[#625D74]">
-                                  {a.consultation_duration_minutes}m duration
-                                </span>
-                              )}
-                              {(a.status === 'checked_in' || a.status === 'waiting' || a.status === 'in_consultation') && (
-                                <span className="text-xs text-[#A78BFA] light:text-[#6D28D9] font-medium">
-                                  Track Live →
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+            {/* Doctor Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+              {filteredDoctors.map((doc) => (
+                <div
+                  key={doc._id}
+                  className="p-4 rounded-xl bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] flex flex-col justify-between hover:border-[#60A5FA] transition-all"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="w-9 h-9 rounded-lg bg-[#151D31] light:bg-[#EFF6FF] border border-[#29344D] light:border-[#BFDBFE] flex items-center justify-center text-[#60A5FA] light:text-[#2563EB] font-bold">
+                        <Stethoscope className="w-4 h-4" />
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-800">
+                        {doc.is_available ? 'Available' : 'On Leave'}
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-sm text-[#F1F5F9] light:text-[#0F172A]">{doc.name}</h3>
+                    <p className="text-xs text-[#60A5FA] light:text-[#2563EB] font-medium">{doc.department_name}</p>
+                    <p className="text-[11px] text-[#94A3B8] light:text-[#475569] mt-1">{doc.qualifications}</p>
+                    <div className="mt-3 pt-2.5 border-t border-[#1E293B] light:border-[#E2E8F0] flex items-center justify-between text-xs text-[#94A3B8] light:text-[#475569]">
+                      <span>Consultation Fee</span>
+                      <strong className="text-[#F1F5F9] light:text-[#0F172A]">₹{doc.consultation_fee || 800}</strong>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setSelectedDocId(doc._id);
+                      setShowBookModal(true);
+                    }}
+                    className="mt-4 w-full py-2 px-3 rounded-lg bg-[#60A5FA] hover:bg-[#3B82F6] light:bg-[#2563EB] light:hover:bg-[#1D4ED8] text-[#0B1020] light:text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <CalendarPlus className="w-3.5 h-3.5" />
+                    <span>Book Appointment</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. VISIT TRACKER VIEW */}
+      {isTrackerView && (
+        <div className="space-y-6 animate-fade-in">
+          {selectedAppt ? (
+            <PatientTracker
+              appointment={selectedAppt}
+              onCheckIn={handleCheckIn}
+              checkInLoading={checkInLoading}
+            />
+          ) : (
+            <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-12 text-center">
+              <Clock className="w-10 h-10 text-[#64748B] mx-auto mb-3" />
+              <h3 className="text-base font-bold text-[#F1F5F9] light:text-[#0F172A]">No Active Visit In Progress</h3>
+              <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-1 max-w-sm mx-auto">
+                You do not currently have an active outpatient queue entry. Book a consultation or view your scheduled visits.
+              </p>
+              <button
+                onClick={() => navigate('/patient/book')}
+                className="mt-4 px-4 py-2 rounded-lg bg-[#60A5FA] text-[#0B1020] font-semibold text-xs"
+              >
+                Schedule Appointment
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. NOTIFICATIONS VIEW */}
+      {isNotificationsView && (
+        <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-6 shadow-sm space-y-4 animate-fade-in">
+          <div className="flex items-center justify-between pb-4 border-b border-[#1E293B] light:border-[#E2E8F0]">
+            <div>
+              <h2 className="text-base font-bold text-[#F1F5F9] light:text-[#0F172A]">Clinical Alerts & Notifications</h2>
+              <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
+                Real-time queue announcements, check-in updates, and prescription issuances.
+              </p>
+            </div>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-[#151D31] light:bg-[#EFF6FF] border border-[#29344D] light:border-[#BFDBFE] text-[#60A5FA] font-semibold">
+              Live Feed
+            </span>
+          </div>
+
+          <div className="space-y-2.5">
+            <div className="p-3.5 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] flex items-start gap-3">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-[#F1F5F9] light:text-[#0F172A]">Appointment Confirmed</p>
+                <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
+                  Your appointment with Dr. Rajesh Sharma has been registered for October 25, 2026.
+                </p>
+                <span className="text-[10px] text-[#64748B] mt-1 block">Today at 09:15 AM</span>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] flex items-start gap-3">
+              <Clock className="w-4 h-4 text-[#60A5FA] shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-[#F1F5F9] light:text-[#0F172A]">Queue Position Update</p>
+                <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
+                  Your estimated consultation time is dynamically updated to ~14 minutes based on active physician pacing.
+                </p>
+                <span className="text-[10px] text-[#64748B] mt-1 block">Today at 10:30 AM</span>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* TAB 2: DIGITAL PRESCRIPTIONS */}
-        {activeTab === 'prescriptions' && (
-          <div className="animate-fade-in">
-            <PrescriptionsView />
+      {/* 4. SETTINGS VIEW */}
+      {isSettingsView && (
+        <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-6 shadow-sm space-y-6 animate-fade-in">
+          <div>
+            <h2 className="text-base font-bold text-[#F1F5F9] light:text-[#0F172A]">Patient Account & Queue Preferences</h2>
+            <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
+              Manage clinical communication preferences and accessibility settings.
+            </p>
           </div>
-        )}
 
-        {/* TAB 3: INSURANCE & HEALTH PROFILE */}
-        {activeTab === 'insurance' && (
-          <div className="animate-fade-in">
-            <ProfileView />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] space-y-2">
+              <span className="text-xs font-bold text-[#F1F5F9] light:text-[#0F172A] block">SMS & Notification Reminders</span>
+              <p className="text-xs text-[#94A3B8] light:text-[#475569]">
+                Receive instant SMS notifications when you are 3 patients away in the queue.
+              </p>
+              <div className="pt-2 flex items-center gap-2">
+                <input type="checkbox" defaultChecked className="rounded border-[#29344D] text-[#60A5FA] focus:ring-0" />
+                <span className="text-xs text-[#F1F5F9] light:text-[#0F172A]">Enable Priority SMS Reminders</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] space-y-2">
+              <span className="text-xs font-bold text-[#F1F5F9] light:text-[#0F172A]">Queue Estimation Preference</span>
+              <p className="text-xs text-[#94A3B8] light:text-[#475569]">
+                Display granular breakdown factors (doctor pacing, remaining break duration).
+              </p>
+              <div className="pt-2 flex items-center gap-2">
+                <input type="checkbox" defaultChecked className="rounded border-[#29344D] text-[#60A5FA] focus:ring-0" />
+                <span className="text-xs text-[#F1F5F9] light:text-[#0F172A]">Show Explainable AI Metrics</span>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Booking Modal */}
-        {showBookModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-            <div className="bg-[#1B1B28] light:bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#343347] light:border-[#DDD9E9] text-xs">
-              <div className="flex items-center justify-between pb-4 border-b border-[#29293A] light:border-[#EAE7F1]">
-                <h3 className="text-base font-bold text-[#F4F2FA] light:text-[#242033]">Book Outpatient Consultation</h3>
+      {/* 5. MY APPOINTMENTS VIEW OR PRIMARY DASHBOARD */}
+      {(!isBookView && !isTrackerView && !isNotificationsView && !isSettingsView) && (
+        <div className="space-y-6">
+          {/* Welcome & Next Upcoming Banner */}
+          {nextAppt && (
+            <div className="p-5 rounded-xl bg-[#151D31] light:bg-white border border-[#29344D] light:border-[#E2E8F0] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-xl bg-[#0F172A] light:bg-[#EFF6FF] border border-[#29344D] light:border-[#BFDBFE] flex items-center justify-center text-[#60A5FA] light:text-[#2563EB] shrink-0">
+                  <Clock className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#1B263D] light:bg-[#EFF6FF] text-[#60A5FA] light:text-[#2563EB]">
+                      Next Visit
+                    </span>
+                    <span className="text-xs text-[#94A3B8] light:text-[#475569]">
+                      {nextAppt.appointment_date} at {nextAppt.scheduled_time}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-[#F1F5F9] light:text-[#0F172A] mt-0.5">
+                    {nextAppt.doctor_name} • {nextAppt.department_name}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
-                  onClick={() => setShowBookModal(false)}
-                  className="p-1 rounded-lg text-[#817C95] hover:text-[#F4F2FA] light:hover:text-[#242033]"
+                  onClick={() => {
+                    setSelectedApptId(nextAppt._id);
+                    navigate('/patient/tracker');
+                  }}
+                  className="flex-1 sm:flex-initial py-2 px-3.5 rounded-lg bg-[#60A5FA] hover:bg-[#3B82F6] light:bg-[#2563EB] light:hover:bg-[#1D4ED8] text-[#0B1020] light:text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <span>Open Live Visit Tracker</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
+            </div>
+          )}
 
-              {bookingMsg && (
-                <div
-                  className={`mt-4 p-3 rounded-xl font-semibold ${
-                    bookingMsg.type === 'success'
-                      ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-800'
-                      : 'bg-rose-950/70 text-rose-300 border border-rose-800'
-                  }`}
-                >
-                  {bookingMsg.text}
-                </div>
-              )}
+          {/* Quick Metrics Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="bg-[#151D31] light:bg-white rounded-xl p-4 border border-[#29344D] light:border-[#E2E8F0]">
+              <span className="text-[11px] font-semibold text-[#94A3B8] light:text-[#64748B] uppercase tracking-wider">
+                Upcoming
+              </span>
+              <div className="text-2xl font-bold text-[#F1F5F9] light:text-[#0F172A] mt-1">{upcomingCount}</div>
+              <p className="text-[10px] text-[#94A3B8] light:text-[#64748B] mt-0.5">Scheduled appointments</p>
+            </div>
 
-              <form onSubmit={handleBook} className="mt-4 space-y-4">
-                <div>
-                  <label className="block font-semibold text-[#AAA6BC] light:text-[#625D74] mb-1">Select Doctor</label>
-                  <select
-                    value={selectedDocId}
-                    onChange={(e) => setSelectedDocId(e.target.value)}
-                    required
-                    className="w-full rounded-xl border border-[#343347] light:border-[#DDD9E9] p-2.5 bg-[#222233] light:bg-[#F0EFF7] text-[#F4F2FA] light:text-[#242033] focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6]"
-                  >
-                    <option value="">-- Select Outpatient Specialist --</option>
-                    {doctors.map((d) => (
-                      <option key={d._id} value={d._id}>
-                        {d.name} • {d.department_name} ({d.room_number})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <div className="bg-[#151D31] light:bg-white rounded-xl p-4 border border-[#29344D] light:border-[#E2E8F0]">
+              <span className="text-[11px] font-semibold text-amber-400 light:text-amber-600 uppercase tracking-wider">
+                Check-in Ready
+              </span>
+              <div className="text-2xl font-bold text-amber-400 light:text-amber-600 mt-1">{awaitingCheckInCount}</div>
+              <p className="text-[10px] text-[#94A3B8] light:text-[#64748B] mt-0.5">Visits scheduled today</p>
+            </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-semibold text-[#AAA6BC] light:text-[#625D74] mb-1">Appointment Date</label>
-                    <input
-                      type="date"
-                      value={apptDate}
-                      onChange={(e) => setApptDate(e.target.value)}
-                      required
-                      className="w-full rounded-xl border border-[#343347] light:border-[#DDD9E9] p-2.5 bg-[#222233] light:bg-[#F0EFF7] text-[#F4F2FA] light:text-[#242033]"
-                    />
-                  </div>
+            <div className="bg-[#151D31] light:bg-white rounded-xl p-4 border border-[#29344D] light:border-[#E2E8F0]">
+              <span className="text-[11px] font-semibold text-[#60A5FA] light:text-[#2563EB] uppercase tracking-wider">
+                In Queue / Active
+              </span>
+              <div className="text-2xl font-bold text-[#60A5FA] light:text-[#2563EB] mt-1">{inProgressCount}</div>
+              <p className="text-[10px] text-[#94A3B8] light:text-[#64748B] mt-0.5">Live outpatient visits</p>
+            </div>
 
-                  <div>
-                    <label className="block font-semibold text-[#AAA6BC] light:text-[#625D74] mb-1">Preferred Time</label>
-                    <select
-                      value={apptTime}
-                      onChange={(e) => setApptTime(e.target.value)}
-                      className="w-full rounded-xl border border-[#343347] light:border-[#DDD9E9] p-2.5 bg-[#222233] light:bg-[#F0EFF7] text-[#F4F2FA] light:text-[#242033]"
-                    >
-                      <option value="09:00">09:00 AM</option>
-                      <option value="09:30">09:30 AM</option>
-                      <option value="10:00">10:00 AM</option>
-                      <option value="10:30">10:30 AM</option>
-                      <option value="11:00">11:00 AM</option>
-                      <option value="11:30">11:30 AM</option>
-                      <option value="14:00">02:00 PM</option>
-                      <option value="14:30">02:30 PM</option>
-                      <option value="15:00">03:00 PM</option>
-                      <option value="15:30">03:30 PM</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-[#AAA6BC] light:text-[#625D74] mb-1">Consultation Type</label>
-                  <select
-                    value={apptType}
-                    onChange={(e) => setApptType(e.target.value)}
-                    className="w-full rounded-xl border border-[#343347] light:border-[#DDD9E9] p-2.5 bg-[#222233] light:bg-[#F0EFF7] text-[#F4F2FA] light:text-[#242033]"
-                  >
-                    <option value="standard">Standard Consultation (15m)</option>
-                    <option value="new_patient">New Patient Comprehensive (25m)</option>
-                    <option value="follow_up">Follow-Up Review (10m)</option>
-                    <option value="quick_review">Quick Test Results Review (8m)</option>
-                  </select>
-                </div>
-
-                <div className="pt-2 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowBookModal(false)}
-                    className="px-4 py-2 rounded-xl text-[#AAA6BC] hover:bg-[#222233] light:hover:bg-[#F0EFF7]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={bookingLoading}
-                    className="px-5 py-2 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] light:bg-[#6D28D9] light:hover:bg-[#5B21B6] text-white font-semibold disabled:opacity-50"
-                  >
-                    {bookingLoading ? 'Checking Availability...' : 'Confirm Booking'}
-                  </button>
-                </div>
-              </form>
+            <div className="bg-[#151D31] light:bg-white rounded-xl p-4 border border-[#29344D] light:border-[#E2E8F0]">
+              <span className="text-[11px] font-semibold text-emerald-400 light:text-emerald-600 uppercase tracking-wider">
+                Concluded
+              </span>
+              <div className="text-2xl font-bold text-emerald-400 light:text-emerald-600 mt-1">{completedCount}</div>
+              <p className="text-[10px] text-[#94A3B8] light:text-[#64748B] mt-0.5">Completed consultations</p>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Active Visit Tracker Section */}
+          {selectedAppt && (
+            <PatientTracker
+              appointment={selectedAppt}
+              onCheckIn={handleCheckIn}
+              checkInLoading={checkInLoading}
+            />
+          )}
+
+          {/* Scheduled Appointments Table */}
+          <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#1E293B] light:border-[#E2E8F0]">
+              <div>
+                <h3 className="font-bold text-sm text-[#F1F5F9] light:text-[#0F172A]">All Scheduled Appointments</h3>
+                <p className="text-xs text-[#94A3B8] light:text-[#475569]">Select a visit to view live status or check in.</p>
+              </div>
+
+              {/* Search & Filter */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-56">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search doctor or ref..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-xs text-[#F1F5F9] light:text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#60A5FA]"
+                  />
+                </div>
+
+                <button
+                  onClick={() => navigate('/patient/book')}
+                  className="px-3 py-1.5 rounded-lg bg-[#60A5FA] text-[#0B1020] font-semibold text-xs flex items-center gap-1.5 shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Book</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[#1E293B] light:border-[#E2E8F0] text-[#94A3B8] light:text-[#64748B]">
+                    <th className="py-2.5 px-3 font-semibold">Reference</th>
+                    <th className="py-2.5 px-3 font-semibold">Physician & Specialty</th>
+                    <th className="py-2.5 px-3 font-semibold">Scheduled Date & Time</th>
+                    <th className="py-2.5 px-3 font-semibold">Status</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#1E293B] light:divide-[#E2E8F0]">
+                  {filteredAppointments.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-xs text-[#64748B]">
+                        No appointments found matching your criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAppointments.map((appt) => {
+                      const isSelected = appt._id === selectedApptId;
+                      return (
+                        <tr
+                          key={appt._id}
+                          className={`hover:bg-[#1B263D]/40 light:hover:bg-[#F8FAFC] transition-colors ${
+                            isSelected ? 'bg-[#1B263D]/60 light:bg-[#EFF6FF]' : ''
+                          }`}
+                        >
+                          <td className="py-3 px-3 font-mono font-semibold text-[#60A5FA] light:text-[#2563EB]">
+                            {appt.booking_reference}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="font-semibold text-[#F1F5F9] light:text-[#0F172A] block">{appt.doctor_name}</span>
+                            <span className="text-[11px] text-[#94A3B8] light:text-[#64748B]">{appt.department_name}</span>
+                          </td>
+                          <td className="py-3 px-3 text-[#94A3B8] light:text-[#475569]">
+                            {appt.appointment_date} at {appt.scheduled_time}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold capitalize ${
+                                appt.status === 'completed'
+                                  ? 'bg-emerald-950/60 text-emerald-300'
+                                  : appt.status === 'in_consultation'
+                                  ? 'bg-[#1B263D] text-[#60A5FA]'
+                                  : appt.status === 'checked_in' || appt.status === 'waiting'
+                                  ? 'bg-amber-950/60 text-amber-300'
+                                  : 'bg-[#0F172A] light:bg-[#F1F5F9] text-[#94A3B8]'
+                              }`}
+                            >
+                              {appt.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <button
+                              onClick={() => setSelectedApptId(appt._id)}
+                              className="text-xs font-semibold text-[#60A5FA] light:text-[#2563EB] hover:underline"
+                            >
+                              Inspect Tracker
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Booking Modal */}
+      {showBookModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-6 shadow-xl">
+            <div className="flex items-center justify-between pb-4 border-b border-[#1E293B] light:border-[#E2E8F0]">
+              <h3 className="font-bold text-base text-[#F1F5F9] light:text-[#0F172A]">Book Outpatient Consultation</h3>
+              <button
+                onClick={() => setShowBookModal(false)}
+                className="text-[#94A3B8] hover:text-[#F1F5F9]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {bookingMsg && (
+              <div
+                className={`mt-4 p-3 rounded-lg text-xs flex items-center gap-2 ${
+                  bookingMsg.type === 'success'
+                    ? 'bg-emerald-950/40 text-emerald-200 border border-emerald-800'
+                    : 'bg-red-950/40 text-red-200 border border-red-800'
+                }`}
+              >
+                {bookingMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                <span>{bookingMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleBook} className="mt-4 space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">
+                  Select Physician
+                </label>
+                <select
+                  value={selectedDocId}
+                  onChange={(e) => setSelectedDocId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-xs text-[#F1F5F9] light:text-[#0F172A]"
+                >
+                  <option value="">-- Choose Physician --</option>
+                  {doctors.map((d) => (
+                    <option key={d._id} value={d._id}>
+                      {d.name} ({d.department_name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={apptDate}
+                    onChange={(e) => setApptDate(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-xs text-[#F1F5F9] light:text-[#0F172A]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#94A3B8] light:text-[#475569] mb-1">Time Slot</label>
+                  <select
+                    value={apptTime}
+                    onChange={(e) => setApptTime(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] text-xs text-[#F1F5F9] light:text-[#0F172A]"
+                  >
+                    <option value="09:30">09:30 AM</option>
+                    <option value="10:00">10:00 AM</option>
+                    <option value="11:00">11:00 AM</option>
+                    <option value="11:30">11:30 AM</option>
+                    <option value="14:00">02:00 PM</option>
+                    <option value="15:00">03:00 PM</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={bookingLoading}
+                className="w-full mt-3 py-2.5 px-4 rounded-lg bg-[#60A5FA] hover:bg-[#3B82F6] light:bg-[#2563EB] light:hover:bg-[#1D4ED8] disabled:opacity-50 text-[#0B1020] light:text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
+              >
+                {bookingLoading ? (
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <CalendarPlus className="w-4 h-4" />
+                    <span>Confirm Consultation Booking</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default PatientView;
