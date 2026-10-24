@@ -89,6 +89,7 @@ export type AppointmentStatus =
   | 'booked'
   | 'checked_in'
   | 'waiting'
+  | 'called'
   | 'in_consultation'
   | 'completed'
   | 'cancelled'
@@ -112,6 +113,7 @@ export interface Appointment {
   priority_score?: number;
   checked_in_at?: string;
   check_in_time?: string;
+  called_at?: string;
   consultation_started_at?: string;
   consultation_completed_at?: string;
   actual_wait_minutes?: number;
@@ -132,7 +134,9 @@ export interface QueueEntry {
   department_name: string;
   appointment_type: string;
   status: AppointmentStatus;
+  queue_number?: string;
   check_in_time?: string;
+  called_at?: string;
   priority_flags?: string[];
   priority_score?: number;
   queue_position?: number;

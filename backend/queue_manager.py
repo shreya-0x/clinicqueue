@@ -180,6 +180,56 @@ def check_in_patient(
         "prediction": prediction
     }
 
+def call_patient(
+    appointment_id: str,
+    doctor_id: str,
+    actor_id: str
+) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """
+    Doctor calls patient to consultation room.
+    Validates state, transitions to 'called', records timestamp, and alerts patient.
+    """
+    db = get_db()
+    appt = db["appointments"].find_one({"_id": str(appointment_id)})
+    if not appt:
+        return False, "Appointment not found.", None
+
+    if str(appt.get("doctor_id")) != str(doctor_id):
+        return False, "This appointment is assigned to a different doctor.", None
+
+    curr_status = appt.get("status")
+    if curr_status not in ["checked_in", "waiting"]:
+        return False, f"Cannot call patient in '{curr_status}' state.", None
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    db["appointments"].update_one(
+        {"_id": str(appointment_id)},
+        {"$set": {"status": "called", "called_at": now_iso}}
+    )
+    db["queue_entries"].update_one(
+        {"appointment_id": str(appointment_id)},
+        {"$set": {"status": "called", "called_at": now_iso}}
+    )
+    # Record queue event
+    db["queue_events"].insert_one({
+        "appointment_id": str(appointment_id),
+        "doctor_id": str(doctor_id),
+        "event_type": "called",
+        "actor_id": str(actor_id),
+        "timestamp": now_iso
+    })
+    # Alert patient
+    doc = db["doctors"].find_one({"_id": str(doctor_id)})
+    room = doc.get("room_number", "Room 101") if doc else "Room 101"
+    create_notification(
+        user_id=appt.get("patient_id"),
+        org_id=appt.get("organization_id"),
+        title="Consultation Call",
+        message=f"{appt.get('doctor_name')} is calling you. Please proceed immediately to {room}.",
+        notif_type="call"
+    )
+    return True, "Patient called to consultation room.", {"appointment_id": str(appointment_id), "status": "called"}
+
 def start_consultation(
     appointment_id: str,
     doctor_id: str,
@@ -199,7 +249,7 @@ def start_consultation(
         return False, "This appointment is assigned to a different doctor.", None
 
     curr_status = appt.get("status")
-    if curr_status not in ["checked_in", "waiting"]:
+    if curr_status not in ["checked_in", "waiting", "called"]:
         return False, f"Cannot start consultation for appointment in '{curr_status}' state.", None
 
     # Check if doctor already has an in-progress consultation

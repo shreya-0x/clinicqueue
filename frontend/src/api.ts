@@ -207,6 +207,12 @@ export const api = {
       body: JSON.stringify(data)
     }),
 
+  callPatient: (appointment_id: string) =>
+    request<{ message: string; appointment_id: string }>('/queue/call', {
+      method: 'POST',
+      body: JSON.stringify({ appointment_id })
+    }),
+
   updateQueuePriority: (queueId: string, priority_flags: string[]) =>
     request<{ message: string; priority_score: number }>(`/queue/${queueId}/priority`, {
       method: 'POST',

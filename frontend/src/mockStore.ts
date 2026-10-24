@@ -568,6 +568,10 @@ class MockStore {
           appt = this.appointments.find((a) => a.booking_reference.toLowerCase() === body.booking_reference.toLowerCase());
         }
         if (appt) {
+          const existingQueue = this.queue.find((q) => q.appointment_id === appt._id);
+          if (existingQueue) {
+            return { message: 'Patient is already checked in and in queue', data: existingQueue } as T;
+          }
           appt.status = 'checked_in';
           appt.check_in_time = new Date().toISOString();
           const qEntry: QueueEntry = {
@@ -581,7 +585,8 @@ class MockStore {
             organization_id: appt.organization_id,
             appointment_type: appt.appointment_type,
             status: 'checked_in',
-            queue_position: this.queue.length + 1,
+            queue_number: `A${this.queue.length + 10}`,
+            queue_position: this.queue.filter(q => q.status === 'waiting' || q.status === 'checked_in').length + 1,
             predicted_wait_minutes: 15,
             check_in_time: new Date().toISOString(),
             priority_flags: body.priority_flags || ['Standard']
@@ -590,7 +595,22 @@ class MockStore {
           this.save();
           return { message: 'Patient checked in successfully', data: qEntry } as T;
         }
-        return { message: 'Check in processed', data: {} } as T;
+        return { message: 'Appointment not found', data: {} } as T;
+      }
+      if (endpoint === '/queue/call') {
+        const apptId = body.appointment_id;
+        const appt = this.appointments.find((a) => a._id === apptId);
+        if (appt) {
+          appt.status = 'called';
+          appt.called_at = new Date().toISOString();
+        }
+        const qEntry = this.queue.find((q) => q.appointment_id === apptId);
+        if (qEntry) {
+          qEntry.status = 'called';
+          qEntry.called_at = new Date().toISOString();
+        }
+        this.save();
+        return { message: 'Patient called to room', appointment_id: apptId } as T;
       }
       if (endpoint.includes('/no-show')) {
         const qId = endpoint.split('/')[2];

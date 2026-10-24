@@ -11,7 +11,11 @@ import {
   Info,
   XCircle,
   Timer,
-  Check
+  Check,
+  UserCheck,
+  BellRing,
+  ArrowRight,
+  ShieldAlert
 } from 'lucide-react';
 
 interface PatientTrackerProps {
@@ -35,19 +39,22 @@ export const PatientTracker: React.FC<PatientTrackerProps> = ({
     appointment_type,
     status,
     check_in_time,
+    called_at,
     consultation_started_at,
     consultation_completed_at,
     consultation_duration_minutes,
     live_prediction
   } = appointment;
 
-  // Stages definition
-  // 1: Booked -> 2: Checked In -> 3: Waiting in Queue -> 4: Consultation in Progress -> 5: Consultation Completed
+  // Stages definition (6-stage clinical lifecycle)
+  // 1: Confirmed -> 2: Checked In -> 3: Waiting in Queue -> 4: Patient Called -> 5: In Consultation -> 6: Consultation Completed
   const getStageIndex = (): number => {
     switch (status) {
       case 'completed':
-        return 5;
+        return 6;
       case 'in_consultation':
+        return 5;
+      case 'called':
         return 4;
       case 'waiting':
         return 3;
@@ -61,233 +68,255 @@ export const PatientTracker: React.FC<PatientTrackerProps> = ({
 
   const stageIndex = getStageIndex();
   const isCancelled = status === 'cancelled';
+  const isNoShow = status === 'no_show';
+  const isTerminal = isCancelled || isNoShow;
 
   const stages = [
     {
       num: 1,
-      title: 'Appointment Booked',
+      title: 'Appointment Confirmed',
       desc: `Scheduled for ${scheduled_time}`,
       timestamp: appointment.created_at ? new Date(appointment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
-      isDone: stageIndex >= 1 && !isCancelled,
-      isCurrent: stageIndex === 1 && !isCancelled
+      isDone: stageIndex >= 1 && !isTerminal,
+      isCurrent: stageIndex === 1 && !isTerminal
     },
     {
       num: 2,
-      title: 'Checked In',
+      title: 'Arrival Checked In',
       desc: check_in_time ? 'Arrival verified at reception desk' : 'Ready to check in on arrival',
       timestamp: check_in_time ? new Date(check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
-      isDone: stageIndex >= 2 && !isCancelled,
-      isCurrent: stageIndex === 2 && !isCancelled
+      isDone: stageIndex >= 2 && !isTerminal,
+      isCurrent: stageIndex === 2 && !isTerminal
     },
     {
       num: 3,
       title: 'Waiting in Queue',
       desc: live_prediction
-        ? `Queue #${live_prediction.queue_position} • ~${live_prediction.estimated_wait_minutes}m wait`
-        : 'In waiting area',
-      isDone: stageIndex >= 3 && !isCancelled,
-      isCurrent: stageIndex === 3 && !isCancelled
+        ? `Queue Position #${live_prediction.queue_position || 2} • ~${live_prediction.estimated_wait_minutes || 14}m wait`
+        : 'In outpatient waiting lobby',
+      isDone: stageIndex >= 3 && !isTerminal,
+      isCurrent: stageIndex === 3 && !isTerminal
     },
     {
       num: 4,
-      title: 'In Consultation',
-      desc: consultation_started_at
-        ? `In session with ${doctor_name}`
-        : 'Consultation with physician',
-      timestamp: consultation_started_at ? new Date(consultation_started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
-      isDone: stageIndex >= 4 && !isCancelled,
-      isCurrent: stageIndex === 4 && !isCancelled
+      title: 'Patient Called',
+      desc: status === 'called' ? 'Proceed immediately to Consulting Room' : 'Physician ready for consultation',
+      timestamp: called_at ? new Date(called_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+      isDone: stageIndex >= 4 && !isTerminal,
+      isCurrent: stageIndex === 4 && !isTerminal
     },
     {
       num: 5,
-      title: 'Completed',
+      title: 'In Consultation',
+      desc: consultation_started_at
+        ? `In session with ${doctor_name}`
+        : 'Active consultation with physician',
+      timestamp: consultation_started_at ? new Date(consultation_started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+      isDone: stageIndex >= 5 && !isTerminal,
+      isCurrent: stageIndex === 5 && !isTerminal
+    },
+    {
+      num: 6,
+      title: 'Consultation Completed',
       desc: consultation_completed_at
-        ? `Visit concluded • Duration: ${consultation_duration_minutes || 15}m`
-        : 'Consultation concluded by physician',
+        ? `Duration: ${consultation_duration_minutes || 16}m • Rx Issued`
+        : 'Visit concluded & follow-up issued',
       timestamp: consultation_completed_at ? new Date(consultation_completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
-      isDone: stageIndex === 5 && !isCancelled,
-      isCurrent: false
+      isDone: stageIndex >= 6 && !isTerminal,
+      isCurrent: stageIndex === 6 && !isTerminal
     }
   ];
 
+  const getStatusBadge = () => {
+    if (isCancelled) {
+      return { text: 'Cancelled', bg: 'bg-red-950/60 text-red-300 border-red-800' };
+    }
+    if (isNoShow) {
+      return { text: 'Flagged No-Show', bg: 'bg-rose-950/60 text-rose-300 border-rose-800' };
+    }
+    switch (status) {
+      case 'completed':
+        return { text: 'Completed', bg: 'bg-emerald-950/60 text-emerald-300 border-emerald-800' };
+      case 'in_consultation':
+        return { text: 'In Consultation', bg: 'bg-[#1B263D] text-[#60A5FA] border-[#60A5FA] animate-pulse' };
+      case 'called':
+        return { text: 'Now Calling You', bg: 'bg-amber-950/80 text-amber-300 border-amber-600 animate-bounce' };
+      case 'waiting':
+        return { text: 'Waiting in Queue', bg: 'bg-[#151D31] text-[#60A5FA] border-[#29344D]' };
+      case 'checked_in':
+        return { text: 'Checked In', bg: 'bg-blue-950/60 text-blue-300 border-blue-800' };
+      case 'booked':
+      default:
+        return { text: 'Confirmed', bg: 'bg-[#0F172A] text-[#94A3B8] border-[#29344D]' };
+    }
+  };
+
+  const badge = getStatusBadge();
+
   return (
-    <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-5 sm:p-6 shadow-sm overflow-hidden transition-colors">
-      {/* Header Info */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-5 border-b border-[#1E293B] light:border-[#E2E8F0]">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-xs font-bold text-[#60A5FA] light:text-[#2563EB] bg-[#0F172A] light:bg-[#EFF6FF] px-2.5 py-0.5 rounded-md border border-[#29344D] light:border-[#BFDBFE]">
-              Ref: {booking_reference}
-            </span>
-            <span className="text-[11px] text-[#94A3B8] light:text-[#475569] capitalize font-medium">
-              {appointment_type.replace('_', ' ')} Consultation
-            </span>
+    <div className="space-y-6">
+      {/* Terminal Warning Banner if Cancelled or No-Show */}
+      {isCancelled && (
+        <div className="p-4 rounded-xl bg-red-950/60 border border-red-800 text-red-200 text-xs flex items-center gap-3">
+          <XCircle className="w-5 h-5 shrink-0 text-red-400" />
+          <div>
+            <strong className="block font-bold">This visit has been cancelled</strong>
+            <span>Your appointment has been cancelled. Please book a new consultation or contact the clinic reception.</span>
           </div>
-          <h3 className="text-lg font-bold text-[#F1F5F9] light:text-[#0F172A]">
-            {doctor_name}
-          </h3>
-          <p className="text-xs text-[#94A3B8] light:text-[#475569] flex items-center gap-1.5 mt-0.5">
-            <Stethoscope className="w-3.5 h-3.5 text-[#60A5FA]" />
-            <span>{department_name}</span>
-            <span>•</span>
-            <Calendar className="w-3.5 h-3.5 text-[#60A5FA]" />
-            <span>{appointment_date} at {scheduled_time}</span>
-          </p>
         </div>
+      )}
 
-        {/* Current State Badge & Action */}
-        <div className="flex items-center gap-2.5">
-          {isCancelled ? (
-            <span className="px-3 py-1 rounded-md text-xs font-bold bg-red-950/60 text-red-300 border border-red-800 flex items-center gap-1.5">
-              <XCircle className="w-3.5 h-3.5" />
-              <span>Cancelled Visit</span>
-            </span>
-          ) : (
-            <span
-              className={`px-3 py-1 rounded-md text-xs font-bold capitalize flex items-center gap-1.5 ${
-                status === 'completed'
-                  ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800'
-                  : status === 'in_consultation'
-                  ? 'bg-[#1B263D] text-[#60A5FA] border border-[#60A5FA] animate-pulse'
-                  : status === 'waiting' || status === 'checked_in'
-                  ? 'bg-amber-950/60 text-amber-300 border border-amber-800'
-                  : 'bg-[#0F172A] light:bg-[#F1F5F9] text-[#94A3B8] light:text-[#475569] border border-[#29344D] light:border-[#E2E8F0]'
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-current" />
-              <span>{status.replace('_', ' ')}</span>
-            </span>
-          )}
+      {isNoShow && (
+        <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-200 text-xs flex items-center gap-3">
+          <ShieldAlert className="w-5 h-5 shrink-0 text-rose-400" />
+          <div>
+            <strong className="block font-bold">Visit flagged as No-Show</strong>
+            <span>Patient did not report to the waiting lobby during the scheduled consultation window.</span>
+          </div>
+        </div>
+      )}
 
-          {/* Check-In CTA Button if Booked */}
+      {/* Hero Status & Primary Visit Details Card */}
+      <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-[#1E293B] light:border-[#E2E8F0]">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="font-mono text-xs px-2.5 py-0.5 rounded-md bg-[#0F172A] light:bg-[#F1F5F9] text-[#60A5FA] light:text-[#2563EB] font-bold border border-[#29344D] light:border-[#CBD5E1]">
+                {booking_reference}
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${badge.bg}`}>
+                {badge.text}
+              </span>
+            </div>
+            <h2 className="text-xl font-bold text-[#F1F5F9] light:text-[#0F172A]">
+              Live Outpatient Visit Tracker
+            </h2>
+            <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
+              Real-time synchronization with clinic reception and attending physician.
+            </p>
+          </div>
+
+          {/* Action: Check In if booked */}
           {status === 'booked' && onCheckIn && (
             <button
               onClick={() => onCheckIn(_id)}
               disabled={checkInLoading}
-              className="px-3.5 py-1.5 rounded-md bg-[#60A5FA] hover:bg-[#3B82F6] light:bg-[#2563EB] light:hover:bg-[#1D4ED8] disabled:opacity-50 text-[#0B1020] light:text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+              className="py-2 px-4 rounded-lg bg-[#60A5FA] hover:bg-[#3B82F6] light:bg-[#2563EB] light:hover:bg-[#1D4ED8] disabled:opacity-50 text-[#0B1020] light:text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
             >
-              {checkInLoading ? (
-                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Check In Now</span>
-                </>
-              )}
+              <UserCheck className="w-4 h-4" />
+              <span>{checkInLoading ? 'Verifying Arrival...' : 'Check In to Clinic'}</span>
             </button>
           )}
+
+          {/* Urgent Action Banner if Called */}
+          {status === 'called' && (
+            <div className="px-4 py-2 rounded-lg bg-amber-500 text-[#0B1020] font-bold text-xs flex items-center gap-2 animate-bounce">
+              <BellRing className="w-4 h-4" />
+              <span>Proceed to Consulting Room</span>
+            </div>
+          )}
+        </div>
+
+        {/* Visit Metadata Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5 text-xs">
+          <div className="p-3.5 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0]">
+            <span className="text-[10px] text-[#94A3B8] light:text-[#64748B] uppercase font-bold block mb-1">
+              Physician & Department
+            </span>
+            <div className="font-bold text-[#F1F5F9] light:text-[#0F172A]">{doctor_name}</div>
+            <div className="text-[#60A5FA] light:text-[#2563EB] text-[11px] font-medium">{department_name}</div>
+          </div>
+
+          <div className="p-3.5 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0]">
+            <span className="text-[10px] text-[#94A3B8] light:text-[#64748B] uppercase font-bold block mb-1">
+              Date & Scheduled Time
+            </span>
+            <div className="font-bold text-[#F1F5F9] light:text-[#0F172A]">{appointment_date}</div>
+            <div className="text-[#94A3B8] light:text-[#475569] text-[11px]">{scheduled_time}</div>
+          </div>
+
+          <div className="p-3.5 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0]">
+            <span className="text-[10px] text-[#94A3B8] light:text-[#64748B] uppercase font-bold block mb-1">
+              Live Queue Position
+            </span>
+            <div className="text-xl font-extrabold text-[#60A5FA] light:text-[#2563EB]">
+              {status === 'waiting' || status === 'checked_in' || status === 'called' ? `#${live_prediction?.queue_position || 2}` : status === 'in_consultation' ? 'In Session' : 'Concluded'}
+            </div>
+            <div className="text-[10px] text-[#94A3B8] light:text-[#64748B]">
+              {status === 'waiting' ? '1 patient ahead' : status === 'called' ? 'Next in line' : 'Queue clear'}
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-lg bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0]">
+            <span className="text-[10px] text-[#94A3B8] light:text-[#64748B] uppercase font-bold block mb-1">
+              Estimated Wait Time
+            </span>
+            <div className="text-xl font-extrabold text-emerald-400 light:text-emerald-600">
+              {status === 'waiting' || status === 'checked_in' ? `~${live_prediction?.estimated_wait_minutes || 14}m` : status === 'called' ? 'Now' : status === 'in_consultation' ? '0m' : 'Done'}
+            </div>
+            <div className="text-[10px] text-[#94A3B8] light:text-[#64748B]">
+              Adaptive pacing (1.02x)
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 5-Stage Visual Stepper Timeline */}
-      <div className="py-6">
-        <div className="relative">
-          {/* Progress Bar Line */}
-          <div className="absolute top-4 left-6 right-6 h-0.5 bg-[#1E293B] light:bg-[#E2E8F0] -z-0">
-            <div
-              className="h-full bg-[#60A5FA] light:bg-[#2563EB] transition-all duration-500"
-              style={{
-                width: isCancelled
-                  ? '0%'
-                  : stageIndex === 1
-                  ? '10%'
-                  : stageIndex === 2
-                  ? '32%'
-                  : stageIndex === 3
-                  ? '55%'
-                  : stageIndex === 4
-                  ? '78%'
-                  : '100%'
-              }}
-            />
-          </div>
+      {/* 6-Stage Timeline Stepper */}
+      <div className="bg-[#151D31] light:bg-white rounded-xl border border-[#29344D] light:border-[#E2E8F0] p-6 shadow-sm">
+        <h3 className="font-bold text-sm text-[#F1F5F9] light:text-[#0F172A] mb-5">
+          Outpatient Care Stages & Verification
+        </h3>
 
-          {/* Stepper Nodes */}
-          <div className="grid grid-cols-5 gap-2 relative z-10">
-            {stages.map((st) => (
-              <div key={st.num} className="flex flex-col items-center text-center">
-                {/* Node Circle */}
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
-                    st.isDone
-                      ? 'bg-[#60A5FA] light:bg-[#2563EB] text-[#0B1020] light:text-white ring-4 ring-[#0B1020] light:ring-white shadow-xs'
-                      : st.isCurrent
-                      ? 'bg-[#151D31] light:bg-white text-[#60A5FA] light:text-[#2563EB] border-2 border-[#60A5FA] light:border-[#2563EB] ring-4 ring-[#60A5FA]/20'
-                      : 'bg-[#0F172A] light:bg-[#F1F5F9] text-[#64748B] border border-[#29344D] light:border-[#CBD5E1]'
-                  }`}
-                >
-                  {st.isDone ? <Check className="w-4 h-4 stroke-[3]" /> : st.num}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+          {stages.map((stg) => (
+            <div
+              key={stg.num}
+              className={`p-3.5 rounded-xl border text-xs flex flex-col justify-between transition-all ${
+                stg.isCurrent
+                  ? 'bg-[#1B263D] border-[#60A5FA] ring-1 ring-[#60A5FA]/40 shadow-xs'
+                  : stg.isDone
+                  ? 'bg-[#0F172A]/70 light:bg-[#F8FAFC] border-emerald-800/80 text-emerald-300'
+                  : 'bg-[#0F172A]/40 light:bg-[#F1F5F9] border-[#29344D] light:border-[#E2E8F0] text-[#64748B]'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
+                      stg.isDone
+                        ? 'bg-emerald-500 text-white'
+                        : stg.isCurrent
+                        ? 'bg-[#60A5FA] text-[#0B1020]'
+                        : 'bg-[#1E293B] light:bg-[#E2E8F0] text-[#94A3B8] light:text-[#64748B]'
+                    }`}
+                  >
+                    {stg.isDone ? <Check className="w-3.5 h-3.5" /> : stg.num}
+                  </span>
+                  {stg.timestamp && (
+                    <span className="font-mono text-[10px] text-[#94A3B8] light:text-[#64748B]">
+                      {stg.timestamp}
+                    </span>
+                  )}
                 </div>
 
-                {/* Node Title */}
-                <span
-                  className={`mt-2 text-xs font-bold tracking-tight ${
-                    st.isCurrent
-                      ? 'text-[#60A5FA] light:text-[#2563EB]'
-                      : st.isDone
-                      ? 'text-[#F1F5F9] light:text-[#0F172A]'
-                      : 'text-[#64748B]'
-                  }`}
-                >
-                  {st.title}
-                </span>
-
-                {/* Node Description & Timestamp */}
-                <span className="text-[10px] text-[#94A3B8] light:text-[#64748B] mt-0.5 max-w-[120px] leading-tight hidden sm:block">
-                  {st.desc}
-                </span>
-
-                {st.timestamp && (
-                  <span className="text-[9px] font-mono font-semibold text-[#60A5FA] light:text-[#2563EB] mt-0.5">
-                    {st.timestamp}
-                  </span>
-                )}
+                <div className="font-bold text-[#F1F5F9] light:text-[#0F172A] text-xs">
+                  {stg.title}
+                </div>
+                <div className="text-[11px] text-[#94A3B8] light:text-[#64748B] mt-1 leading-relaxed">
+                  {stg.desc}
+                </div>
               </div>
-            ))}
-          </div>
+
+              {stg.isCurrent && (
+                <div className="mt-3 pt-2 border-t border-[#29344D] light:border-[#CBD5E1] text-[10px] font-bold text-[#60A5FA] light:text-[#2563EB] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#60A5FA] animate-ping" />
+                  <span>Current State</span>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
-
-      {/* Dynamic Wait-Time & Prediction Intelligence Panel */}
-      {(status === 'checked_in' || status === 'waiting') && live_prediction && (
-        <div className="mt-2 p-4 rounded-xl bg-[#0F172A] light:bg-[#F8FAFC] border border-[#29344D] light:border-[#E2E8F0] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-[#151D31] light:bg-[#EFF6FF] border border-[#29344D] light:border-[#BFDBFE] flex flex-col items-center justify-center shrink-0">
-              <span className="text-[9px] font-bold uppercase text-[#94A3B8] light:text-[#64748B] leading-none">Queue</span>
-              <span className="text-xl font-extrabold text-[#60A5FA] light:text-[#2563EB] leading-tight">
-                #{live_prediction.queue_position}
-              </span>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-[#F1F5F9] light:text-[#0F172A]">
-                  Estimated Wait: ~{live_prediction.estimated_wait_minutes} Minutes
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#151D31] light:bg-[#EFF6FF] text-[#60A5FA] light:text-[#2563EB] border border-[#29344D] light:border-[#BFDBFE] font-semibold">
-                  Confidence: {Math.round((live_prediction.confidence_score || 0.88) * 100)}%
-                </span>
-              </div>
-              <p className="text-xs text-[#94A3B8] light:text-[#475569] mt-0.5">
-                Expected Call Time:{' '}
-                <strong className="text-[#F1F5F9] light:text-[#0F172A]">
-                  {new Date(live_prediction.estimated_consultation_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </strong>
-              </p>
-            </div>
-          </div>
-
-          {/* Explainable Factor Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#94A3B8] light:text-[#475569]">
-            <span className="px-2.5 py-1 rounded-md bg-[#151D31] light:bg-white border border-[#29344D] light:border-[#E2E8F0]">
-              {live_prediction.factors?.patients_ahead || 0} Patients Ahead
-            </span>
-            <span className="px-2.5 py-1 rounded-md bg-[#151D31] light:bg-white border border-[#29344D] light:border-[#E2E8F0]">
-              Doctor Pacing: {live_prediction.factors?.doctor_pacing_factor || 1.0}x
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

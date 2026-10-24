@@ -12,10 +12,17 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
-    // Default to dark as specified in the Midnight & Violet design system
-    const saved = localStorage.getItem('cq_theme');
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('cq_theme') : null;
     if (saved === 'light' || saved === 'dark') {
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.remove('light', 'dark');
+        document.documentElement.classList.add(saved);
+      }
       return saved;
+    }
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
     }
     return 'dark';
   });

@@ -834,6 +834,27 @@ def create_app():
 
         return jsonify({"message": msg, "data": payload})
 
+    @app.route("/api/queue/call", methods=["POST"])
+    @require_role("doctor", "hospital_admin", "receptionist")
+    def call_patient_endpoint():
+        user = g.current_user
+        data = request.get_json() or {}
+        appt_id = data.get("appointment_id")
+        if not appt_id:
+            return jsonify({"error": "Bad Request", "message": "appointment_id is required."}), 400
+
+        from backend.queue_manager import call_patient
+        doctor_id = user.get("doctor_id") or data.get("doctor_id")
+        if not doctor_id:
+            target = db["appointments"].find_one({"_id": str(appt_id)})
+            doctor_id = target.get("doctor_id") if target else None
+
+        ok, msg, payload = call_patient(appt_id, doctor_id, str(user["_id"]))
+        if not ok:
+            return jsonify({"error": "Invalid Transition", "message": msg}), 400
+
+        return jsonify({"message": msg, "data": payload}), 200
+
     @app.route("/api/queue/<queue_id>/priority", methods=["POST"])
     @require_role("receptionist", "hospital_admin")
     def update_queue_priority(queue_id):
