@@ -13,6 +13,7 @@ import {
   PredictionEvaluation,
   NotificationItem
 } from './types';
+import mockData from './mockData.json';
 
 const HOSPITALS: Organization[] = [
   {
@@ -360,13 +361,18 @@ const INITIAL_PRESCRIPTIONS: Prescription[] = [
 
 class MockStore {
   private users = INITIAL_USERS;
-  private appointments = [...INITIAL_APPOINTMENTS];
-  private queue = [...INITIAL_QUEUE];
-  private doctors = [...DOCTORS];
-  private prescriptions = [...INITIAL_PRESCRIPTIONS];
+  private hospitals: Organization[] = (mockData.organizations as any) || HOSPITALS;
+  private departments: Department[] = (mockData.departments as any) || DEPARTMENTS;
+  private doctors: Doctor[] = (mockData.doctors as any) || [...DOCTORS];
+  private patients: Patient[] = (mockData.patients as any) || [];
+  private appointments: Appointment[] = (mockData.appointments as any) || [...INITIAL_APPOINTMENTS];
+  private queue: QueueEntry[] = (mockData.queue_entries as any) || [...INITIAL_QUEUE];
+  private consultations: Consultation[] = (mockData.consultations as any) || [];
+  private predictionSnapshots: any[] = (mockData.prediction_snapshots as any) || [];
+  private prescriptions: Prescription[] = (mockData.prescriptions as any) || [...INITIAL_PRESCRIPTIONS];
   private activeConsultation: Consultation | null = {
-    _id: 'c-001',
-    appointment_id: 'appt-002',
+    _id: 'cons-live-active-01',
+    appointment_id: 'appt-today-003',
     patient_id: 'pat-0002',
     patient_name: 'Sanjay Gupta',
     doctor_id: 'doc-mc-01',
@@ -375,19 +381,19 @@ class MockStore {
     organization_id: 'org-metrocare-01',
     started_at: new Date(Date.now() - 8 * 60000).toISOString(),
     status: 'in_progress',
-    notes: ''
+    notes: 'Consultation underway, patient symptoms under clinical evaluation.'
   };
-  private insurance: Insurance = {
+  private insurance: Insurance = (mockData.insurance && mockData.insurance[0]) ? (mockData.insurance[0] as any) : {
     _id: 'ins-001',
     patient_id: 'pat-0001',
-    provider_name: 'Star Health Comprehensive',
+    provider_name: 'Star Health Comprehensive Insurance',
     policy_number: 'SHI-POL-2026-9812',
-    tpa_id: 'TPA-MD-88190',
+    tpa_id: 'TPA-MED-0091',
     coverage_limit: '₹ 5,00,000',
     copay_percentage: '10%',
     valid_until: '2027-03-31',
     status: 'active',
-    claim_status: 'Pre-Approved'
+    claim_status: 'Pre-Approved Verified'
   };
 
   constructor() {
@@ -396,12 +402,12 @@ class MockStore {
 
   private load() {
     try {
-      const saved = localStorage.getItem('clinicqueue_mock_db');
+      const saved = localStorage.getItem('clinicqueue_mock_db_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.appointments) this.appointments = parsed.appointments;
-        if (parsed.queue) this.queue = parsed.queue;
-        if (parsed.doctors) this.doctors = parsed.doctors;
+        if (parsed.appointments && parsed.appointments.length > 50) this.appointments = parsed.appointments;
+        if (parsed.queue && parsed.queue.length > 10) this.queue = parsed.queue;
+        if (parsed.doctors && parsed.doctors.length > 10) this.doctors = parsed.doctors;
         if (parsed.prescriptions) this.prescriptions = parsed.prescriptions;
         if (parsed.insurance) this.insurance = parsed.insurance;
         if (parsed.activeConsultation !== undefined) this.activeConsultation = parsed.activeConsultation;
@@ -412,7 +418,7 @@ class MockStore {
   private save() {
     try {
       localStorage.setItem(
-        'clinicqueue_mock_db',
+        'clinicqueue_mock_db_v3',
         JSON.stringify({
           appointments: this.appointments,
           queue: this.queue,
@@ -481,12 +487,12 @@ class MockStore {
 
     // 6. Organizations
     if (endpoint === '/organizations') {
-      return { organizations: HOSPITALS } as T;
+      return { organizations: this.hospitals } as T;
     }
 
     // 7. Departments
     if (endpoint.startsWith('/departments')) {
-      return { departments: DEPARTMENTS } as T;
+      return { departments: this.departments } as T;
     }
 
     // 8. Doctors
@@ -606,9 +612,10 @@ class MockStore {
           gender: body.gender || 'Male',
           mrn: `CQ-MRN-${Math.floor(1000 + Math.random() * 9000)}`
         };
+        this.patients.unshift(newPat);
         return { patient: newPat } as T;
       }
-      return { patients: [] } as T;
+      return { patients: this.patients } as T;
     }
 
     // 12. Consultations
@@ -648,6 +655,13 @@ class MockStore {
           appt.consultation_completed_at = new Date().toISOString();
           appt.consultation_duration_minutes = body.duration_minutes || 16;
         }
+        this.consultations.unshift({
+          ...this.activeConsultation,
+          completed_at: new Date().toISOString(),
+          status: 'completed',
+          duration_minutes: body.duration_minutes || 16,
+          notes: body.notes || 'Consultation completed.'
+        });
         this.queue = this.queue.filter((q) => q.appointment_id !== this.activeConsultation?.appointment_id);
         this.activeConsultation = null;
         this.save();
@@ -655,25 +669,7 @@ class MockStore {
       return { message: 'Consultation completed successfully' } as T;
     }
     if (endpoint === '/consultations/history') {
-      return {
-        consultations: [
-          {
-            _id: 'c-hist-01',
-            appointment_id: 'appt-005',
-            patient_id: 'pat-0005',
-            patient_name: 'Aditi Rao',
-            doctor_id: 'doc-mc-01',
-            doctor_name: 'Dr. Rajesh Sharma',
-            department_name: 'Cardiology',
-            organization_id: 'org-metrocare-01',
-            started_at: '2026-10-24T14:05:00Z',
-            completed_at: '2026-10-24T14:22:00Z',
-            duration_minutes: 17,
-            status: 'completed',
-            notes: 'Routine outpatient follow-up. Cardiac telemetry normal.'
-          }
-        ]
-      } as T;
+      return { consultations: this.consultations } as T;
     }
 
     // 13. Prescriptions & Insurance
@@ -781,20 +777,34 @@ class MockStore {
 
     // 16. Analytics Dashboard
     if (endpoint.startsWith('/analytics/dashboard')) {
+      const completedCount = this.consultations.length || 259;
+      const queueCount = this.queue.length || 37;
       return {
         daily_stats: {
-          total_arrivals: 68,
-          completed_visits: 54,
-          average_wait_minutes: 14.8,
-          average_duration_minutes: 16.2
+          total_arrivals: queueCount + 42,
+          completed_visits: completedCount,
+          average_wait_minutes: 13.8,
+          average_duration_minutes: 16.4,
+          no_show_rate_pct: 4.2,
+          doctor_utilization_pct: 89.4
         },
         hourly_arrivals: [
-          { hour: '09:00', count: 12 },
-          { hour: '10:00', count: 18 },
-          { hour: '11:00', count: 15 },
-          { hour: '12:00', count: 8 },
-          { hour: '14:00', count: 10 },
-          { hour: '15:00', count: 5 }
+          { hour: '08:00', count: 14 },
+          { hour: '09:00', count: 28 },
+          { hour: '10:00', count: 32 },
+          { hour: '11:00', count: 24 },
+          { hour: '12:00', count: 16 },
+          { hour: '14:00', count: 20 },
+          { hour: '15:00', count: 18 },
+          { hour: '16:00', count: 12 }
+        ],
+        department_distribution: [
+          { name: 'General Medicine', value: 62 },
+          { name: 'Cardiology', value: 48 },
+          { name: 'Orthopedics', value: 38 },
+          { name: 'Pediatrics', value: 34 },
+          { name: 'Neurology', value: 28 },
+          { name: 'Dermatology', value: 25 }
         ]
       } as T;
     }

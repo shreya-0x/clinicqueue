@@ -537,28 +537,30 @@ def seed_database(clear_existing: bool = True):
         "created_at": in_cons_started
     })
 
-    # More patients scheduled for today across different statuses
-    for idx, pat in enumerate(patients_list[2:20]):
-        doc = rng.choice(doctors_list[:3])
-        status = "booked"
-        flags = []
-        if idx in [1, 4, 7]:
-            status = "waiting"
-            if idx == 4:
-                flags = ["mobility"]
-        elif idx == 2:
-            status = "completed"
-        elif idx == 8:
-            status = "cancelled"
-        elif idx == 9:
-            status = "no_show"
+    # Today's clinic session: 35 queue entries across waiting, checked_in, called, paused
+    active_docs = doctors_list[:6] # Top 6 doctors in MetroCare Apex Hospital
+    queue_statuses = ["waiting"] * 28 + ["checked_in"] * 4 + ["called"] * 2 + ["paused"] * 1
 
-        sched_hour = 10 + (idx // 4)
-        sched_min = (idx % 4) * 15
+    for idx, pat in enumerate(patients_list[2:37]):
+        doc = active_docs[idx % len(active_docs)]
+        status = queue_statuses[idx % len(queue_statuses)]
+        flags = []
+        if idx in [3, 11, 19]:
+            flags = ["mobility"]
+        elif idx in [7, 23]:
+            flags = ["pediatric"]
+        elif idx in [15, 31]:
+            flags = ["senior_citizen"]
+
+        priority_score = 25 if "mobility" in flags else (15 if "senior_citizen" in flags else (10 if "pediatric" in flags else 0))
+
+        sched_hour = 9 + (idx // 6)
+        sched_min = (idx % 6) * 10
         s_time = f"{sched_hour:02d}:{sched_min:02d}"
 
-        a_id = f"appt-today-{idx+3:02d}"
+        a_id = f"appt-today-{idx+3:03d}"
         bkg_ref = f"CQ-TODAY-{idx+3:04d}"
+        cin_time = (now - timedelta(minutes=60 - idx)).isoformat()
 
         appt_doc = {
             "_id": a_id,
@@ -571,40 +573,39 @@ def seed_database(clear_existing: bool = True):
             "organization_id": flagship_org_id,
             "appointment_date": today_str,
             "scheduled_time": s_time,
-            "appointment_type": rng.choice(["standard", "follow_up", "new_patient"]),
+            "appointment_type": "walk_in" if (idx % 4 == 0) else "standard",
             "status": status,
             "priority_flags": flags,
-            "priority_score": 15 if "mobility" in flags else 0,
-            "created_at": (now - timedelta(hours=idx + 2)).isoformat()
+            "priority_score": priority_score,
+            "checked_in_at": cin_time,
+            "created_at": (now - timedelta(hours=idx + 1)).isoformat()
         }
-
-        if status in ["waiting", "completed"]:
-            cin = (now - timedelta(minutes=45 - idx * 2)).isoformat()
-            appt_doc["checked_in_at"] = cin
-            if status == "completed":
-                appt_doc["consultation_started_at"] = (now - timedelta(minutes=20)).isoformat()
-                appt_doc["consultation_completed_at"] = (now - timedelta(minutes=5)).isoformat()
-                appt_doc["actual_wait_minutes"] = 18.0
-                appt_doc["consultation_duration_minutes"] = 15.0
 
         db["appointments"].insert_one(appt_doc)
 
-        if status in ["waiting"]:
-            db["queue_entries"].insert_one({
-                "appointment_id": a_id,
-                "patient_id": pat["_id"],
-                "patient_name": pat["name"],
-                "doctor_id": doc["_id"],
-                "doctor_name": doc["name"],
-                "organization_id": flagship_org_id,
-                "department_name": doc["department_name"],
-                "appointment_type": appt_doc["appointment_type"],
-                "status": "waiting",
-                "check_in_time": appt_doc.get("checked_in_at"),
-                "priority_flags": flags,
-                "priority_score": 15 if "mobility" in flags else 0,
-                "created_at": appt_doc.get("checked_in_at")
-            })
+        q_entry = {
+            "_id": f"q-entry-{idx+2:03d}",
+            "appointment_id": a_id,
+            "patient_id": pat["_id"],
+            "patient_name": pat["name"],
+            "doctor_id": doc["_id"],
+            "doctor_name": doc["name"],
+            "organization_id": flagship_org_id,
+            "department_name": doc["department_name"],
+            "appointment_type": appt_doc["appointment_type"],
+            "status": status,
+            "queue_number": f"A{idx+10:02d}",
+            "queue_position": idx + 1,
+            "check_in_time": cin_time,
+            "priority_flags": flags,
+            "priority_score": priority_score,
+            "estimated_wait_minutes": max(4, (idx * 4) % 45),
+            "created_at": cin_time
+        }
+        if status == "in_consultation":
+            q_entry["started_at"] = appt_doc.get("consultation_started_at")
+
+        db["queue_entries"].insert_one(q_entry)
 
     # 7. Seed initial in-app notifications
     notifications = [
