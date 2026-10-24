@@ -124,25 +124,25 @@ export const AdminView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8">
+    <div className="min-h-screen bg-[#111118] light:bg-[#F7F7FB] text-[#F4F2FA] light:text-[#242033] py-8 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-6 border border-[#343347] light:border-[#DDD9E9] shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 mb-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#29213D] light:bg-[#EDE9FE] text-[#A78BFA] light:text-[#6D28D9] mb-1">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Hospital Operations & Strategy</span>
             </div>
-            <h1 className="text-2xl font-bold text-navy-900">
+            <h1 className="text-2xl font-bold tracking-tight">
               MetroCare Apex Hospital • Leadership Console
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#AAA6BC] light:text-[#625D74] mt-0.5">
               Multi-department outpatient analytics, Digital Twin simulation, and empirical prediction accuracy validation.
             </p>
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+          <div className="flex items-center gap-1 bg-[#222233] light:bg-slate-100 p-1 rounded-xl border border-[#343347] light:border-slate-200 text-xs font-semibold">
             <button
               onClick={() => setActiveTab('analytics')}
               className={`px-3 py-1.5 rounded-lg transition-colors ${

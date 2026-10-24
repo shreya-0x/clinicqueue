@@ -45,24 +45,24 @@ export const HospitalsView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10">
+    <div className="min-h-screen bg-[#111118] light:bg-[#F7F7FB] text-[#F4F2FA] light:text-[#242033] py-10 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="max-w-3xl mb-8">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200 mb-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#29213D] light:bg-[#EDE9FE] text-[#A78BFA] light:text-[#6D28D9] border border-[#343347] light:border-[#DDD9E9] mb-3">
             <Hospital className="w-3.5 h-3.5" />
-            <span>Participating Healthcare Network</span>
+            <span>Participating Outpatient Clinics</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-navy-900 tracking-tight">
+          <h1 className="text-3xl font-extrabold tracking-tight">
             Find Outpatient Clinics & Hospitals
           </h1>
-          <p className="text-sm text-slate-600 mt-2">
-            Explore 8 simulated tertiary care and super specialty healthcare centers across India equipped with ClinicQueue adaptive waiting-time prediction.
+          <p className="text-xs sm:text-sm text-[#AAA6BC] light:text-[#625D74] mt-2">
+            Explore outpatient specialty clinics equipped with ClinicQueue adaptive waiting-time prediction and digital check-in.
           </p>
         </div>
 
         {/* Filter Controls */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-4 border border-[#343347] light:border-[#DDD9E9] shadow-xs mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
           {/* City Chips */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
             {cities.map((city) => (
@@ -71,8 +71,8 @@ export const HospitalsView: React.FC = () => {
                 onClick={() => setSelectedCity(city)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
                   selectedCity === city
-                    ? 'bg-brand-600 text-white shadow-xs'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    ? 'bg-[#8B5CF6] text-white shadow-xs'
+                    : 'bg-[#222233] light:bg-[#F0EFF7] hover:bg-[#29213D] text-[#AAA6BC] light:text-[#625D74]'
                 }`}
               >
                 {city}
@@ -82,13 +82,13 @@ export const HospitalsView: React.FC = () => {
 
           {/* Search Box */}
           <div className="relative w-full md:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#817C95] absolute left-3 top-2.5" />
             <input
               type="text"
               placeholder="Search facility name or type..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-xs rounded-xl border border-slate-300 pl-9 pr-3 py-2 text-navy-900"
+              className="w-full text-xs rounded-xl border border-[#343347] light:border-[#DDD9E9] bg-[#222233] light:bg-[#F0EFF7] pl-9 pr-3 py-2 text-[#F4F2FA] light:text-[#242033]"
             />
           </div>
         </div>
@@ -98,46 +98,38 @@ export const HospitalsView: React.FC = () => {
           {filtered.map((org) => (
             <div
               key={org._id}
-              className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs hover:shadow-md hover:border-brand-300 transition-all flex flex-col justify-between"
+              className="bg-[#1B1B28] light:bg-white rounded-2xl border border-[#343347] light:border-[#DDD9E9] p-6 shadow-xs flex flex-col justify-between hover:border-[#8B5CF6] transition-all"
             >
               <div>
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center font-bold">
+                <div className="flex items-start justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-[#29213D] light:bg-[#EDE9FE] flex items-center justify-center text-[#A78BFA] light:text-[#6D28D9] mb-3">
                     <Hospital className="w-5 h-5" />
                   </div>
-                  {org.is_flagship && (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                      Flagship Center
-                    </span>
-                  )}
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#222233] light:bg-[#F0EFF7] text-[#A78BFA] light:text-[#6D28D9]">
+                    {org.type.replace('_', ' ')}
+                  </span>
                 </div>
 
-                <h3 className="text-base font-bold text-navy-900">{org.name}</h3>
-                <div className="text-xs text-brand-700 font-medium mt-0.5">{org.type}</div>
+                <h3 className="text-base font-bold text-[#F4F2FA] light:text-[#242033]">{org.name}</h3>
+                <p className="text-xs text-[#AAA6BC] light:text-[#625D74] flex items-center gap-1 mt-1">
+                  <MapPin className="w-3.5 h-3.5 text-[#8B5CF6]" />
+                  <span>{org.city}, {org.state}</span>
+                </p>
 
-                <div className="space-y-1.5 mt-4 text-xs text-slate-600">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                    <span>{org.address}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{org.phone}</span>
-                  </div>
+                <div className="mt-4 pt-3 border-t border-[#29293A] light:border-[#EAE7F1] text-xs space-y-1.5 text-[#AAA6BC] light:text-[#625D74]">
+                  <div>Active Departments: <strong className="text-[#F4F2FA] light:text-[#242033]">{org.departments?.length || 4} Specialties</strong></div>
+                  <div>Outpatient Capacity: <strong className="text-[#F4F2FA] light:text-[#242033]">{org.opd_capacity_per_day} patients / day</strong></div>
+                  <div>Emergency Contact: <strong className="text-[#F4F2FA] light:text-[#242033]">{org.emergency_contact}</strong></div>
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                  Adaptive Engine Live
-                </span>
-
+              <div className="mt-6 pt-4 border-t border-[#29293A] light:border-[#EAE7F1]">
                 <button
                   onClick={() => handleBookHospital(org._id)}
-                  className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs flex items-center gap-1 shadow-xs transition-colors"
+                  className="w-full py-2.5 rounded-xl bg-[#29213D] hover:bg-[#8B5CF6] light:bg-[#EDE9FE] light:hover:bg-[#6D28D9] text-[#A78BFA] hover:text-white light:text-[#6D28D9] light:hover:text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2"
                 >
-                  <span>Book Visit</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <span>Book Consultation at Facility</span>
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>

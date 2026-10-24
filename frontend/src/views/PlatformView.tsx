@@ -79,19 +79,19 @@ export const PlatformView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8">
+    <div className="min-h-screen bg-[#111118] light:bg-[#F7F7FB] text-[#F4F2FA] light:text-[#242033] py-8 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-6 border border-[#343347] light:border-[#DDD9E9] shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 mb-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#29213D] light:bg-[#EDE9FE] text-[#A78BFA] light:text-[#6D28D9] mb-1">
               <Compass className="w-3.5 h-3.5" />
               <span>National Healthcare Network Console</span>
             </div>
-            <h1 className="text-2xl font-bold text-navy-900">
+            <h1 className="text-2xl font-bold tracking-tight">
               ClinicQueue Platform Administration
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#AAA6BC] light:text-[#625D74] mt-0.5">
               Federated network directory, hospital onboarding, and system infrastructure observability.
             </p>
           </div>
@@ -99,7 +99,7 @@ export const PlatformView: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-xs flex items-center gap-1.5 transition-colors"
+              className="px-4 py-2.5 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] light:bg-[#6D28D9] light:hover:bg-[#5B21B6] text-white font-semibold text-xs shadow-xs flex items-center gap-1.5 transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>Onboard New Hospital</span>
@@ -108,14 +108,14 @@ export const PlatformView: React.FC = () => {
         </div>
 
         {/* System Health / Storage Monitor Card */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs mb-8">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-            <h2 className="text-sm font-bold text-navy-900 flex items-center gap-2">
-              <Database className="w-4 h-4 text-brand-600" />
+        <div className="bg-[#1B1B28] light:bg-white rounded-2xl p-6 border border-[#343347] light:border-[#DDD9E9] shadow-xs mb-8">
+          <div className="flex items-center justify-between pb-4 border-b border-[#29293A] light:border-[#EAE7F1] mb-4">
+            <h2 className="text-sm font-bold text-[#F4F2FA] light:text-[#242033] flex items-center gap-2">
+              <Database className="w-4 h-4 text-[#8B5CF6]" />
               <span>Platform Infrastructure & Storage Engine Status</span>
             </h2>
-            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-300 bg-emerald-950/70 px-2.5 py-1 rounded-full border border-emerald-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               Operational
             </span>
           </div>

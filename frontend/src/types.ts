@@ -25,6 +25,9 @@ export interface Organization {
   type: string;
   status: 'active' | 'suspended' | 'pending';
   is_flagship?: boolean;
+  departments?: any[];
+  opd_capacity_per_day?: number;
+  emergency_contact?: string;
   stats?: {
     doctor_count: number;
     department_count: number;
@@ -56,6 +59,7 @@ export interface Doctor {
   delay_reason?: string;
   experience_years: number;
   consultation_fee: number;
+  average_consultation_minutes?: number;
   email: string;
   schedule?: {
     days: string[];
@@ -106,6 +110,7 @@ export interface Appointment {
   priority_flags?: string[];
   priority_score?: number;
   checked_in_at?: string;
+  check_in_time?: string;
   consultation_started_at?: string;
   consultation_completed_at?: string;
   actual_wait_minutes?: number;

@@ -35,7 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const me = await api.getMe();
         setUser(me.user);
       } else {
-        // Auto-initialize demo patient session for judges exploring without logging in
+        // Auto-initialize default patient session if no token exists
         const demoRes = await api.demoSwitch('patient');
         localStorage.setItem('clinicqueue_token', demoRes.token);
         setToken(demoRes.token);
