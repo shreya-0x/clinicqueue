@@ -1150,6 +1150,109 @@ def create_app():
         return jsonify({"audit_logs": serialize_doc(logs)})
 
     # -------------------------------------------------------------
+    # DIGITAL PRESCRIPTIONS (Rx)
+    # -------------------------------------------------------------
+    @app.route("/api/prescriptions", methods=["GET"])
+    @require_auth
+    def get_prescriptions():
+        user = g.current_user
+        query = {}
+        if user.get("role") == "patient":
+            query["patient_id"] = str(user.get("patient_id"))
+        elif request.args.get("patient_id"):
+            query["patient_id"] = str(request.args.get("patient_id"))
+        elif user.get("role") == "doctor":
+            query["doctor_id"] = str(user.get("doctor_id"))
+
+        rx_list = list(db["prescriptions"].find(query).sort("date", -1).limit(30))
+        return jsonify({"prescriptions": serialize_doc(rx_list)})
+
+    @app.route("/api/prescriptions", methods=["POST"])
+    @require_role("doctor")
+    def create_prescription():
+        user = g.current_user
+        data = request.get_json() or {}
+        patient_id = data.get("patient_id")
+        medications = data.get("medications", [])
+        if not patient_id or not medications:
+            return jsonify({"error": "Bad Request", "message": "patient_id and medications are required."}), 400
+
+        doc_rec = db["doctors"].find_one({"_id": str(user.get("doctor_id"))}) or {}
+        pat_rec = db["patients"].find_one({"_id": str(patient_id)}) or {}
+
+        rx_id = f"rx-{uuid.uuid4().hex[:8]}"
+        new_rx = {
+            "_id": rx_id,
+            "rx_number": f"CQ-RX-2026-{uuid.uuid4().hex[:4].upper()}",
+            "patient_id": str(patient_id),
+            "patient_name": pat_rec.get("name", "Patient"),
+            "doctor_id": str(user.get("doctor_id")),
+            "doctor_name": doc_rec.get("name", user.get("name")),
+            "department_name": doc_rec.get("department_name", "Cardiology"),
+            "organization_name": doc_rec.get("organization_name", "MetroCare Apex Hospital"),
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "diagnosis": data.get("diagnosis", "Clinical Consultation Review"),
+            "medications": medications,
+            "advice": data.get("advice", "Follow prescribed dosage and rest."),
+            "follow_up": data.get("follow_up", "SOS in 2 weeks"),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        db["prescriptions"].insert_one(new_rx)
+
+        record_audit_log(
+            user_id=str(user["_id"]),
+            organization_id=doc_rec.get("organization_id"),
+            action="issue_prescription",
+            entity_type="prescription",
+            entity_id=rx_id,
+            details={"rx_number": new_rx["rx_number"], "patient_id": patient_id}
+        )
+
+        return jsonify({"message": "Prescription issued.", "prescription": serialize_doc(new_rx)}), 201
+
+    # -------------------------------------------------------------
+    # INSURANCE & COVERAGE DETAILS
+    # -------------------------------------------------------------
+    @app.route("/api/insurance", methods=["GET"])
+    @require_auth
+    def get_insurance():
+        user = g.current_user
+        p_id = str(user.get("patient_id")) if user.get("role") == "patient" else request.args.get("patient_id", "pat-0001")
+        ins = db["insurance"].find_one({"patient_id": p_id})
+        if not ins:
+            ins = {
+                "patient_id": p_id,
+                "provider_name": "Ayushman Bharat PM-JAY / Universal Health",
+                "policy_number": "AB-PMJAY-2026-8819",
+                "coverage_limit": "₹ 5,00,000",
+                "valid_until": "2027-12-31",
+                "copay_percentage": "0%",
+                "status": "active",
+                "claim_status": "Pre-Approved Verified"
+            }
+        return jsonify({"insurance": serialize_doc(ins)})
+
+    @app.route("/api/insurance", methods=["PATCH", "POST"])
+    @require_auth
+    def update_insurance():
+        user = g.current_user
+        p_id = str(user.get("patient_id")) if user.get("role") == "patient" else request.args.get("patient_id", "pat-0001")
+        data = request.get_json() or {}
+        db["insurance"].update_one(
+            {"patient_id": p_id},
+            {"$set": {
+                "provider_name": data.get("provider_name", "Star Health Comprehensive"),
+                "policy_number": data.get("policy_number", ""),
+                "tpa_id": data.get("tpa_id", ""),
+                "coverage_limit": data.get("coverage_limit", "₹ 5,00,000"),
+                "status": "active"
+            }},
+            upsert=True
+        )
+        ins = db["insurance"].find_one({"patient_id": p_id})
+        return jsonify({"message": "Insurance details updated.", "insurance": ins})
+
+    # -------------------------------------------------------------
     # DEMO RESET
     # -------------------------------------------------------------
     @app.route("/api/demo/reset", methods=["POST"])

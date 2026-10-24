@@ -630,6 +630,88 @@ def seed_database(clear_existing: bool = True):
     for notif in notifications:
         db["notifications"].insert_one(notif)
 
+    # 8. Seed Digital Prescriptions & Insurance (Matching clinicqueue-okfj)
+    prescriptions = [
+        {
+            "_id": "rx-2026-001",
+            "rx_number": "CQ-RX-2026-0891",
+            "patient_id": "pat-0001",
+            "patient_name": "Rohan Mehta",
+            "doctor_id": primary_doc["_id"],
+            "doctor_name": primary_doc["name"],
+            "department_name": "Cardiology",
+            "organization_name": "MetroCare Apex Hospital",
+            "date": (now - timedelta(days=7)).strftime("%Y-%m-%d"),
+            "diagnosis": "Mild Essential Hypertension & Lipid Review",
+            "medications": [
+                {
+                    "name": "Atorvastatin 20mg",
+                    "dosage": "1 tablet at bedtime",
+                    "duration": "30 days",
+                    "instructions": "Take after dinner with water"
+                },
+                {
+                    "name": "Telmisartan 40mg",
+                    "dosage": "1 tablet once daily",
+                    "duration": "30 days",
+                    "instructions": "Take morning after breakfast"
+                },
+                {
+                    "name": "Ecoaspirin 75mg",
+                    "dosage": "1 tablet once daily",
+                    "duration": "30 days",
+                    "instructions": "Take post lunch"
+                }
+            ],
+            "advice": "Low sodium diet (< 2g/day), 30 min daily brisk walking, monitor blood pressure weekly.",
+            "follow_up": "In 4 weeks with fasting lipid profile"
+        },
+        {
+            "_id": "rx-2026-002",
+            "rx_number": "CQ-RX-2026-0422",
+            "patient_id": "pat-0001",
+            "patient_name": "Rohan Mehta",
+            "doctor_id": general_doc["_id"],
+            "doctor_name": general_doc["name"],
+            "department_name": "General Medicine",
+            "organization_name": "MetroCare Apex Hospital",
+            "date": (now - timedelta(days=28)).strftime("%Y-%m-%d"),
+            "diagnosis": "Seasonal Upper Respiratory Tract Infection",
+            "medications": [
+                {
+                    "name": "Amoxicillin-Clavulanate 625mg",
+                    "dosage": "1 tablet twice daily",
+                    "duration": "5 days",
+                    "instructions": "Complete full antibiotic course after meals"
+                },
+                {
+                    "name": "Paracetamol 650mg",
+                    "dosage": "1 tablet SOS (as needed)",
+                    "duration": "3 days",
+                    "instructions": "For body ache or fever > 100°F"
+                }
+            ],
+            "advice": "Steam inhalation twice daily, warm fluids, adequate rest.",
+            "follow_up": "SOS if fever persists > 3 days"
+        }
+    ]
+    for rx in prescriptions:
+        db["prescriptions"].insert_one(rx)
+
+    db["insurance"].insert_one({
+        "_id": "ins-pat-0001",
+        "patient_id": "pat-0001",
+        "provider_name": "Star Health Comprehensive Insurance",
+        "policy_number": "SHI-POL-2026-9812",
+        "tpa_id": "TPA-MED-0091",
+        "coverage_limit": "₹ 5,00,000",
+        "valid_until": "2027-03-31",
+        "copay_percentage": "10%",
+        "status": "active",
+        "claim_status": "Pre-Approved Verified",
+        "contact_phone": "1800-425-2255"
+    })
+
     # 8. Seed Audit Log entries
     db["audit_logs"].insert_one({
         "user_id": "user-demo-admin",

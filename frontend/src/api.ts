@@ -242,6 +242,25 @@ export const api = {
 
   markAllNotificationsRead: () => request<{ message: string }>('/notifications/read-all', { method: 'POST' }),
 
+  // Prescriptions & Insurance
+  getPrescriptions: (patient_id?: string) =>
+    request<{ prescriptions: any[] }>(`/prescriptions${patient_id ? `?patient_id=${encodeURIComponent(patient_id)}` : ''}`),
+
+  createPrescription: (data: any) =>
+    request<{ message: string; prescription: any }>('/prescriptions', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  getInsurance: (patient_id?: string) =>
+    request<{ insurance: any }>(`/insurance${patient_id ? `?patient_id=${encodeURIComponent(patient_id)}` : ''}`),
+
+  updateInsurance: (data: any) =>
+    request<{ message: string; insurance?: any }>('/insurance', {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    }),
+
   // Audit Logs
   getAuditLogs: () => request<{ audit_logs: AuditLog[] }>('/audit-logs'),
 

@@ -245,6 +245,24 @@ export const Navbar: React.FC = () => {
                   </Link>
 
                   <Link
+                    to="/prescriptions"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <Activity className="w-4 h-4 text-[#0b6e6e]" />
+                    <span>Digital Prescriptions</span>
+                  </Link>
+
+                  <Link
+                    to="/profile"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-[#0b6e6e]" />
+                    <span>Health Profile & Insurance</span>
+                  </Link>
+
+                  <Link
                     to="/demo-centre"
                     onClick={() => setShowProfileMenu(false)}
                     className="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"

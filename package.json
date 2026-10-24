@@ -1,0 +1,9 @@
+{
+  "name": "clinicqueue",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm install --legacy-peer-deps && npm run build:node",
+    "start": "cd frontend && npm run preview"
+  }
+}

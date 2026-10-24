@@ -6,31 +6,42 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Atkinson Hyperlegible"', 'system-ui', '-apple-system', 'sans-serif'],
+      },
       colors: {
+        clinic: {
+          bg: '#f4f8f8',
+          ink: '#1b2b34',
+          accent: '#0b6e6e',
+          'accent-hover': '#085252',
+          'accent-light': '#e6f4f4',
+          line: '#d5dfe3',
+        },
         brand: {
           50: '#f0fdfa',
-          100: '#ccfbf1',
-          200: '#99f6e4',
+          100: '#e6f4f4',
+          200: '#b2dfdf',
           300: '#5eead4',
-          400: '#2dd4bf',
-          500: '#14b8a6', // restrained teal accent
-          600: '#0d9488',
-          700: '#0f766e',
-          800: '#115e59',
-          900: '#134e4a',
+          400: '#14b8a6',
+          500: '#0b6e6e',
+          600: '#0b6e6e',
+          700: '#085252',
+          800: '#063f3f',
+          900: '#042828',
         },
         navy: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a', // deep navy typography
-          950: '#0a0f1d'
+          50: '#f4f8f8',
+          100: '#eef3f5',
+          200: '#d5dfe3',
+          300: '#9db4bd',
+          400: '#64808c',
+          500: '#435f6c',
+          600: '#324a55',
+          700: '#263b44',
+          800: '#1b2b34',
+          900: '#1b2b34',
+          950: '#121e24'
         }
       }
     },

@@ -76,6 +76,7 @@ export interface Patient {
   email?: string;
   blood_group?: string;
   city?: string;
+  emergency_contact?: string;
   appointment_history?: Appointment[];
 }
 
@@ -149,6 +150,43 @@ export interface Consultation {
   duration_minutes?: number;
   status: 'in_progress' | 'completed';
   notes?: string;
+}
+
+export interface PrescriptionMedication {
+  name: string;
+  dosage: string;
+  duration: string;
+  instructions: string;
+}
+
+export interface Prescription {
+  _id: string;
+  rx_number: string;
+  patient_id: string;
+  patient_name: string;
+  doctor_id: string;
+  doctor_name: string;
+  department_name: string;
+  organization_name: string;
+  date: string;
+  diagnosis: string;
+  medications: PrescriptionMedication[];
+  advice: string;
+  follow_up: string;
+}
+
+export interface Insurance {
+  _id?: string;
+  patient_id: string;
+  provider_name: string;
+  policy_number: string;
+  tpa_id?: string;
+  coverage_limit: string;
+  valid_until: string;
+  copay_percentage: string;
+  status: 'active' | 'expired' | 'pending';
+  claim_status: string;
+  contact_phone?: string;
 }
 
 export interface Prediction {

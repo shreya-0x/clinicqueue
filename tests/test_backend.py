@@ -225,3 +225,45 @@ def test_analytics_dashboard_endpoint(client):
     assert len(data["by_department"]) > 0
     assert len(data["by_day"]) == 6
     assert len(data["hourly_congestion"]) == 8
+
+def test_prescriptions_endpoint(client):
+    login_res = client.post("/api/auth/demo-switch", json={"role": "patient"})
+    assert login_res.status_code == 200
+    token = login_res.get_json()["token"]
+
+    res = client.get("/api/prescriptions", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert "prescriptions" in data
+    assert len(data["prescriptions"]) >= 1
+    rx = data["prescriptions"][0]
+    assert "rx_number" in rx
+    assert "medications" in rx
+    assert len(rx["medications"]) > 0
+
+def test_insurance_endpoint(client):
+    login_res = client.post("/api/auth/demo-switch", json={"role": "patient"})
+    assert login_res.status_code == 200
+    token = login_res.get_json()["token"]
+
+    res = client.get("/api/insurance", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert "insurance" in data
+    assert data["insurance"]["provider_name"] != ""
+
+    # Test update
+    update_res = client.patch(
+        "/api/insurance",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "provider_name": "Star Health Comprehensive Plus",
+            "policy_number": "SHI-POL-2026-9999",
+            "coverage_limit": "₹ 7,50,000",
+            "copay_percentage": "10%"
+        }
+    )
+    assert update_res.status_code == 200
+    update_data = update_res.get_json()
+    assert "insurance" in update_data
+    assert update_data["insurance"]["policy_number"] == "SHI-POL-2026-9999"

@@ -52,10 +52,12 @@ Auditable Mean Absolute Error (MAE) and Median Absolute Error tracking using rea
 
 ## 3. Technology Stack
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, React Router v6, Recharts, Lucide React.
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, React Router v6, Recharts, Lucide React, Atkinson Hyperlegible Typography.
 - **Backend**: Python 3.12, Flask REST API, Flask-CORS, Pydantic, Argon2id/Bcrypt password hashing.
 - **Database Layer**: MongoDB Atlas compatible persistence with PyMongo, PLUS a zero-dependency **Local Embedded Persistent Storage Engine** that functions offline with identical PyMongo APIs.
-- **Testing**: Automated Pytest suite (13 comprehensive test suites passing 100%).
+- **Testing**: Automated Pytest suite (15 comprehensive test suites passing 100%).
+- **Digital Health Extensions**: Outpatient Digital Prescriptions (Rx) with print/PDF, and Cashless Health Insurance Coverage Profiles with interactive TPA management.
+- **Deployment**: Automatic GitHub Pages deployment via GitHub Actions (`.github/workflows/deploy-pages.yml`), Vercel configuration (`vercel.json`), and Render API configuration (`render.yaml`).
 
 ---
 
@@ -152,7 +154,7 @@ Run the full backend test suite covering authentication, role isolation, queue s
 $env:PYTHONPATH = "."
 .\venv\Scripts\python -m pytest tests/test_backend.py -v
 ```
-**Results**: `13 passed in 11.96s (100% pass rate)`.
+**Results**: `15 passed in ~6.11s (100% pass rate)`.
 
 To verify frontend production build:
 ```powershell
