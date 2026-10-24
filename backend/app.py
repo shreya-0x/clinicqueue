@@ -202,7 +202,7 @@ def create_app():
 
     @app.route("/api/auth/demo-switch", methods=["POST"])
     def demo_switch():
-        """Fast role switcher for hackathon judges to seamlessly test all roles."""
+        """Role switcher for seamless portal exploration and automated testing."""
         data = request.get_json() or {}
         target_role = data.get("role", "patient")
 

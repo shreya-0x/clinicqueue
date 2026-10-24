@@ -1,9 +1,10 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { DemoBar } from './components/DemoBar';
-import { Navbar } from './components/Navbar';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { PortalLayout } from './components/PortalLayout';
 import { LandingView } from './views/LandingView';
+import { AuthView } from './views/AuthView';
 import { PatientView } from './views/PatientView';
 import { PrescriptionsView } from './views/PrescriptionsView';
 import { ProfileView } from './views/ProfileView';
@@ -18,49 +19,117 @@ export const App: React.FC = () => {
   return (
     <HashRouter>
       <AuthProvider>
-        <div className="min-h-screen flex flex-col bg-[#111118] light:bg-[#F7F7FB] text-[#F4F2FA] light:text-[#242033] font-sans transition-colors duration-200">
-          {/* Top Quick Role Switcher Bar */}
-          <DemoBar />
+        <Routes>
+          {/* 1. Initial Entry Point: Uncluttered Landing Screen with 3 Portal Cards */}
+          <Route path="/" element={<LandingView />} />
 
-          {/* Standard Navigation Bar */}
-          <Navbar />
+          {/* 2. Distinct, Refresh-Safe Authentication Routes */}
+          <Route path="/login/:portalRole" element={<AuthView />} />
 
-          {/* Application Portals & Views */}
-          <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<LandingView />} />
-              <Route path="/patient" element={<PatientView />} />
-              <Route path="/patient/visits" element={<PatientView />} />
-              <Route path="/prescriptions" element={<PrescriptionsView />} />
-              <Route path="/patient/prescriptions" element={<PrescriptionsView />} />
-              <Route path="/insurance" element={<ProfileView />} />
-              <Route path="/profile" element={<ProfileView />} />
-              <Route path="/patient/profile" element={<ProfileView />} />
-              <Route path="/reception" element={<ReceptionView />} />
-              <Route path="/doctor" element={<DoctorView />} />
-              <Route path="/admin" element={<AdminView />} />
-              <Route path="/platform" element={<PlatformView />} />
-              <Route path="/hospitals" element={<HospitalsView />} />
-              <Route path="/queue-board" element={<QueueBoardView />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
+          {/* 3. Internal Application Shell for Authenticated Portals */}
+          <Route element={<PortalLayout />}>
+            {/* Patient Portal Routes */}
+            <Route
+              path="/patient"
+              element={
+                <ProtectedRoute allowedRoles={['patient', 'hospital_admin', 'platform_admin']}>
+                  <PatientView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/patient/visits"
+              element={
+                <ProtectedRoute allowedRoles={['patient', 'hospital_admin', 'platform_admin']}>
+                  <PatientView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/prescriptions"
+              element={
+                <ProtectedRoute allowedRoles={['patient', 'hospital_admin', 'platform_admin']}>
+                  <PrescriptionsView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/patient/prescriptions"
+              element={
+                <ProtectedRoute allowedRoles={['patient', 'hospital_admin', 'platform_admin']}>
+                  <PrescriptionsView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/insurance"
+              element={
+                <ProtectedRoute allowedRoles={['patient', 'hospital_admin', 'platform_admin']}>
+                  <ProfileView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute allowedRoles={['patient', 'hospital_admin', 'platform_admin']}>
+                  <ProfileView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/patient/profile"
+              element={
+                <ProtectedRoute allowedRoles={['patient', 'hospital_admin', 'platform_admin']}>
+                  <ProfileView />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Professional Footer */}
-          <footer className="bg-[#15151F] light:bg-white border-t border-[#343347] light:border-[#DDD9E9] py-6 text-xs text-[#817C95] light:text-[#777188] transition-colors duration-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-[#F4F2FA] light:text-[#242033]">ClinicQueue</span>
-                <span>• Outpatient Operations & Predictive Analytics Platform</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span>Adaptive Wait-Time Prediction</span>
-                <span>• Clinic-Day Digital Twin</span>
-                <span>• Live Queue Orchestration</span>
-              </div>
-            </div>
-          </footer>
-        </div>
+            {/* Doctor Portal Routes */}
+            <Route
+              path="/doctor"
+              element={
+                <ProtectedRoute allowedRoles={['doctor', 'hospital_admin', 'platform_admin']}>
+                  <DoctorView />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Receptionist Portal Routes */}
+            <Route
+              path="/reception"
+              element={
+                <ProtectedRoute allowedRoles={['receptionist', 'hospital_admin', 'platform_admin']}>
+                  <ReceptionView />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Shared Clinical Utilities */}
+            <Route path="/queue-board" element={<QueueBoardView />} />
+            <Route path="/hospitals" element={<HospitalsView />} />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={['hospital_admin', 'platform_admin']}>
+                  <AdminView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/platform"
+              element={
+                <ProtectedRoute allowedRoles={['platform_admin']}>
+                  <PlatformView />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+
+          {/* Catch-all redirect to portal selection */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </AuthProvider>
     </HashRouter>
   );

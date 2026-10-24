@@ -4,13 +4,13 @@ import { api } from '../api';
 
 interface AuthContextType {
   user: User | null;
-  role: Role;
+  role: Role | null;
   token: string | null;
   loading: boolean;
   storageInfo: any;
-  login: (email: string, pwd: string) => Promise<void>;
-  register: (data: { name: string; email: string; password: string; phone?: string; age?: number }) => Promise<void>;
-  switchRole: (role: Role) => Promise<void>;
+  login: (email: string, pwd: string) => Promise<User>;
+  register: (data: { name: string; email: string; password: string; phone?: string; age?: number; gender?: string }) => Promise<User>;
+  switchRole: (role: Role) => Promise<User>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -26,20 +26,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchHealthAndMe = async () => {
     try {
       // 1. Fetch backend health & storage status
-      const health = await api.getHealth();
-      setStorageInfo(health.storage);
+      try {
+        const health = await api.getHealth();
+        setStorageInfo(health.storage);
+      } catch (hErr) {
+        console.warn('[AuthContext] Backend health probe warning:', hErr);
+      }
 
       // 2. Fetch authenticated user if token exists
       const savedToken = localStorage.getItem('clinicqueue_token');
       if (savedToken) {
-        const me = await api.getMe();
-        setUser(me.user);
+        try {
+          const me = await api.getMe();
+          setUser(me.user);
+          setToken(savedToken);
+        } catch (meErr) {
+          // Token expired or invalid
+          console.warn('[AuthContext] Stored token invalid or expired, resetting session.');
+          localStorage.removeItem('clinicqueue_token');
+          setToken(null);
+          setUser(null);
+        }
       } else {
-        // Auto-initialize default patient session if no token exists
-        const demoRes = await api.demoSwitch('patient');
-        localStorage.setItem('clinicqueue_token', demoRes.token);
-        setToken(demoRes.token);
-        setUser(demoRes.user);
+        setToken(null);
+        setUser(null);
       }
     } catch (err) {
       console.warn('[AuthContext] Could not fetch session/health:', err);
@@ -52,39 +62,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchHealthAndMe();
   }, []);
 
-  const login = async (email: string, pwd: string) => {
+  const login = async (email: string, pwd: string): Promise<User> => {
     setLoading(true);
     try {
       const res = await api.login(email, pwd);
       localStorage.setItem('clinicqueue_token', res.token);
       setToken(res.token);
       setUser(res.user);
+      return res.user;
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (data: { name: string; email: string; password: string; phone?: string; age?: number }) => {
+  const register = async (data: { name: string; email: string; password: string; phone?: string; age?: number; gender?: string }): Promise<User> => {
     setLoading(true);
     try {
       const res = await api.register(data);
       localStorage.setItem('clinicqueue_token', res.token);
       setToken(res.token);
       setUser(res.user);
+      return res.user;
     } finally {
       setLoading(false);
     }
   };
 
-  const switchRole = async (targetRole: Role) => {
+  const switchRole = async (targetRole: Role): Promise<User> => {
     setLoading(true);
     try {
       const res = await api.demoSwitch(targetRole);
       localStorage.setItem('clinicqueue_token', res.token);
       setToken(res.token);
       setUser(res.user);
-    } catch (err) {
-      console.error('[AuthContext] Failed to switch demo role:', err);
+      return res.user;
     } finally {
       setLoading(false);
     }
@@ -106,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const role: Role = user?.role || 'patient';
+  const role: Role | null = user?.role || null;
 
   return (
     <AuthContext.Provider
