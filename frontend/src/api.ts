@@ -16,12 +16,23 @@ import { mockStore } from './mockStore';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+const isStaticHost =
+  typeof window !== 'undefined' &&
+  (window.location.hostname.includes('github.io') ||
+    window.location.hostname.includes('pages.dev') ||
+    window.location.protocol === 'file:');
+
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('clinicqueue_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  // If hosted on GitHub Pages or static host without backend, directly use mockStore
+  if (isStaticHost && !import.meta.env.VITE_API_URL) {
+    return Promise.resolve(mockStore.handleRequest<T>(endpoint, options));
+  }
+
   const headers = {
     'Content-Type': 'application/json',
     ...getAuthHeader(),
