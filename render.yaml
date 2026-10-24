@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: clinicqueue-api
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT backend.app:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: TIMEZONE
+        value: Asia/Kolkata
+      - key: DEMO_MODE
+        value: "true"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
