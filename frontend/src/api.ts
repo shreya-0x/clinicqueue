@@ -12,6 +12,7 @@ import {
   NotificationItem,
   AuditLog
 } from './types';
+import { mockStore } from './mockStore';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -34,6 +35,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     });
 
     if (!res.ok) {
+      // If deployed on static host (e.g. GitHub Pages) returning 404 or 405 for POST APIs, fallback to mockStore
+      if (res.status === 404 || res.status === 405) {
+        return mockStore.handleRequest<T>(endpoint, options);
+      }
       let errMsg = `Request failed (${res.status})`;
       try {
         const errJson = await res.json();
@@ -44,8 +49,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
     return await res.json();
   } catch (err: any) {
-    console.error(`[API Error] ${endpoint}:`, err);
-    throw err;
+    // If network fails (static host without backend), gracefully fallback to mockStore
+    console.warn(`[API Notice] Falling back to client-side store for ${endpoint}:`, err.message);
+    try {
+      return mockStore.handleRequest<T>(endpoint, options);
+    } catch {
+      throw err;
+    }
   }
 }
 
